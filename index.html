@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Tape — Trading Journal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1b2b;
+    --surface:#152439;
+    --surface-2:#1c2d47;
+    --border:#2a3b57;
+    --text:#e7e2d3;
+    --text-muted:#8391a8;
+    --gain:#3fa796;
+    --gain-bg:rgba(63,167,150,0.14);
+    --loss:#c1443c;
+    --loss-bg:rgba(193,68,60,0.14);
+    --amber:#e0a458;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(224,164,88,0.06), transparent 60%),
+      radial-gradient(1000px 500px at 100% 0%, rgba(63,167,150,0.06), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--amber);color:#161616;}
+
+  h1,h2,h3{font-family:'Fraunces',serif;font-weight:600;margin:0;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  a{color:inherit;}
+  button, input, select, textarea{font-family:inherit;color:inherit;}
+  input, select, textarea{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:8px 10px;
+    font-size:14px;
+    outline:none;
+  }
+  input:focus, select:focus, textarea:focus{border-color:var(--amber);}
+  input::placeholder, textarea::placeholder{color:var(--text-muted);}
+  button{
+    cursor:pointer;
+    border-radius:6px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    padding:8px 14px;
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:.02em;
+  }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible{
+    outline:2px solid var(--amber);
+    outline-offset:2px;
+  }
+  button:hover{border-color:var(--amber);}
+  .btn-primary{background:var(--amber);color:#1a1206;border-color:var(--amber);}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-ghost{background:transparent;}
+  .btn-danger{color:var(--loss);}
+  .btn-danger:hover{border-color:var(--loss);}
+
+  /* ---------- Ticker tape header (signature element) ---------- */
+  .tape-header{
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, #0c1626, #0f1b2b);
+    position:sticky; top:0; z-index:20;
+  }
+  .tape-top{
+    max-width:1180px;margin:0 auto;
+    display:flex;align-items:baseline;justify-content:space-between;
+    padding:18px 24px 12px;
+  }
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand h1{font-size:22px;letter-spacing:.01em;}
+  .brand .sub{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.14em;}
+  .tape-wrap{
+    overflow:hidden;
+    border-top:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+    background:#0b1421;
+    white-space:nowrap;
+  }
+  .tape-track{
+    display:inline-flex;
+    animation:scroll-tape 40s linear infinite;
+    padding:9px 0;
+  }
+  .tape-wrap:hover .tape-track{animation-play-state:paused;}
+  @keyframes scroll-tape{
+    from{transform:translateX(0);}
+    to{transform:translateX(-50%);}
+  }
+  .tape-item{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:0 22px;font-size:12.5px;letter-spacing:.03em;
+    border-right:1px solid var(--border);
+  }
+  .tape-item .sym{font-weight:600;color:var(--text);}
+  .tape-item .pnl.up{color:var(--gain);}
+  .tape-item .pnl.down{color:var(--loss);}
+  .tape-item .arrow{opacity:.7;}
+  .tape-empty{color:var(--amber);opacity:.75;}
+
+  /* ---------- Layout ---------- */
+  main{max-width:1180px;margin:0 auto;padding:28px 24px 80px;}
+  .grid{display:grid;grid-template-columns:1.6fr 1fr;gap:22px;align-items:start;}
+  @media (max-width:880px){ .grid{grid-template-columns:1fr;} }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:18px 20px;
+    margin-bottom:20px;
+  }
+  .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .card-head h2{font-size:17px;}
+  .eyebrow{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--text-muted);margin-bottom:4px;}
+
+  /* Date nav */
+  .date-nav{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+  .date-nav .date-label{font-family:'Fraunces',serif;font-size:19px;font-weight:600;min-width:200px;}
+  .date-nav input[type="date"]{max-width:150px;}
+
+  /* Trade form */
+  .form-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+  .form-grid .full{grid-column:1/-1;}
+  .form-grid label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:5px;}
+  .form-grid .field{display:flex;flex-direction:column;}
+  .form-grid input, .form-grid select{width:100%;}
+  @media (max-width:640px){ .form-grid{grid-template-columns:repeat(2,1fr);} }
+  .side-toggle{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  .side-toggle button{flex:1;border:none;border-radius:0;background:var(--surface-2);}
+  .side-toggle button.active-long{background:var(--gain-bg);color:var(--gain);}
+  .side-toggle button.active-short{background:var(--loss-bg);color:var(--loss);}
+  .form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px;}
+  .pnl-preview{font-size:12.5px;color:var(--text-muted);margin-right:auto;align-self:center;}
+  .pnl-preview .val{font-family:'IBM Plex Mono',monospace;font-weight:600;}
+
+  /* Ledger table */
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{
+    text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--text-muted);font-weight:600;padding:0 8px 8px;border-bottom:1px solid var(--border);
+  }
+  td{padding:9px 8px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr.trade-row:hover{background:var(--surface-2);cursor:pointer;}
+  .tag-pill{
+    display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:20px;
+    background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);
+  }
+  .pnl-cell{font-family:'IBM Plex Mono',monospace;font-weight:600;white-space:nowrap;}
+  .pnl-cell.up{color:var(--gain);}
+  .pnl-cell.down{color:var(--loss);}
+  .row-actions{display:flex;gap:6px;}
+  .row-actions button{padding:3px 8px;font-size:11px;}
+  .empty-state{color:var(--text-muted);font-size:13.5px;padding:18px 4px;text-align:center;}
+
+  /* Reflection */
+  textarea{width:100%;min-height:110px;resize:vertical;line-height:1.5;font-size:13.5px;}
+  .mood-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px;}
+  .mood-chip{
+    font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);
+    background:var(--surface-2);cursor:pointer;
+  }
+  .mood-chip.active{background:var(--amber);color:#1a1206;border-color:var(--amber);}
+
+  /* Stats */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .stat{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+  .stat .label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:6px;}
+  .stat .value{font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:600;}
+  .stat .value.up{color:var(--gain);}
+  .stat .value.down{color:var(--loss);}
+
+  /* Calendar heatmap */
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .cal-nav .label{font-size:13px;font-weight:600;font-family:'Fraunces',serif;}
+  .cal-nav button{padding:3px 9px;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .cal-dow{font-size:9.5px;color:var(--text-muted);text-align:center;text-transform:uppercase;padding-bottom:3px;}
+  .cal-day{
+    aspect-ratio:1/1;border-radius:5px;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:11px;
+    cursor:pointer;position:relative;background:var(--surface-2);color:var(--text-muted);
+  }
+  .cal-day.blank{visibility:hidden;}
+  .cal-day.selected{outline:2px solid var(--amber);outline-offset:-2px;}
+  .cal-day.today{font-weight:700;color:var(--text);}
+  .cal-day:hover{border-color:var(--amber);}
+
+  /* Footer / utility */
+  .util-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .util-row button{flex:1;}
+  footer{max-width:1180px;margin:0 auto;padding:0 24px 40px;color:var(--text-muted);font-size:12px;text-align:center;}
+
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--text-muted);margin-top:10px;}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .swatch{width:9px;height:9px;border-radius:2px;display:inline-block;}
+</style>
+</head>
+<body>
+
+<div class="tape-header">
+  <div class="tape-top">
+    <div class="brand">
+      <h1>The Tape</h1>
+      <span class="sub">a daily trading journal</span>
+    </div>
+    <div class="sub" id="todayBadge" style="text-align:right;"></div>
+  </div>
+  <div class="tape-wrap">
+    <div class="tape-track" id="tapeTrack"><!-- filled by JS --></div>
+  </div>
+</div>
+
+<main>
+  <div class="grid">
+
+    <!-- MAIN COLUMN -->
+    <div class="col-main">
+
+      <div class="date-nav">
+        <button id="prevDay" class="btn-ghost" aria-label="Previous day">←</button>
+        <div class="date-label" id="dateLabel">—</div>
+        <button id="nextDay" class="btn-ghost" aria-label="Next day">→</button>
+        <input type="date" id="datePicker">
+        <button id="todayBtn" class="btn-ghost">Today</button>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2 id="formTitle">Log a trade</h2>
+          <button id="cancelEdit" class="btn-ghost" style="display:none;">Cancel edit</button>
+        </div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="f-symbol">Symbol</label>
+            <input id="f-symbol" type="text" placeholder="AAPL" maxlength="12" style="text-transform:uppercase;">
+          </div>
+          <div class="field">
+            <label>Side</label>
+            <div class="side-toggle">
+              <button type="button" id="sideLong">Long</button>
+              <button type="button" id="sideShort">Short</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-entry">Entry price</label>
+            <input id="f-entry" type="number" step="any" placeholder="0.00">
+          </div>
+          <div class="field">
+            <label for="f-exit">Exit price</label>
+            <input id="f-exit" type="number" step="any" placeholder="0.00">
+          </div>
+          <div class="field">
+            <label for="f-size">Size</label>
+            <input id="f-size" type="number" step="any" placeholder="100">
+          </div>
+          <div class="field">
+            <label for="f-setup">Setup</label>
+            <select id="f-setup">
+              <option>Breakout</option>
+              <option>Pullback</option>
+              <option>Reversal</option>
+              <option>Trend follow</option>
+              <option>Range / mean reversion</option>
+              <option>News / catalyst</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="f-notes">Trade notes</label>
+            <input id="f-notes" type="text" placeholder="What was the plan? Did you follow it?">
+          </div>
+        </div>
+        <div class="form-actions">
+          <div class="pnl-preview">Est. P&amp;L: <span class="val mono" id="pnlPreview">$0.00</span></div>
+          <button id="saveTrade" class="btn-primary">Add trade</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Today's ledger</h2>
+          <span class="eyebrow" id="dayCount">0 trades</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Sym</th><th>Side</th><th>Entry</th><th>Exit</th><th>Size</th><th>Setup</th><th>P&amp;L</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tradeRows"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="emptyState" style="display:none;">No trades logged for this day yet. Add one above.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Reflection</h2></div>
+        <div class="mood-row" id="moodRow">
+          <div class="mood-chip" data-mood="Calm">Calm</div>
+          <div class="mood-chip" data-mood="Confident">Confident</div>
+          <div class="mood-chip" data-mood="Hesitant">Hesitant</div>
+          <div class="mood-chip" data-mood="FOMO">FOMO</div>
+          <div class="mood-chip" data-mood="Revenge">Revenge trading</div>
+          <div class="mood-chip" data-mood="Greedy">Greedy</div>
+          <div class="mood-chip" data-mood="Disciplined">Disciplined</div>
+        </div>
+        <textarea id="reflectionText" placeholder="What went well today? What would you do differently? Any rules broken?"></textarea>
+        <div class="form-actions"><button id="saveReflection" class="btn-primary">Save reflection</button></div>
+      </div>
+
+    </div>
+
+    <!-- SIDE COLUMN -->
+    <div class="col-side">
+
+      <div class="card">
+        <div class="card-head"><h2>Performance</h2></div>
+        <div class="stat-grid">
+          <div class="stat"><div class="label">Total P&amp;L</div><div class="value" id="statTotal">$0.00</div></div>
+          <div class="stat"><div class="label">Win rate</div><div class="value" id="statWinRate">—</div></div>
+          <div class="stat"><div class="label">Avg win</div><div class="value up" id="statAvgWin">$0.00</div></div>
+          <div class="stat"><div class="label">Avg loss</div><div class="value down" id="statAvgLoss">$0.00</div></div>
+          <div class="stat"><div class="label">Profit factor</div><div class="value" id="statPF">—</div></div>
+          <div class="stat"><div class="label">Streak</div><div class="value" id="statStreak">—</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="cal-nav">
+          <button id="calPrev">←</button>
+          <div class="label" id="calLabel">—</div>
+          <button id="calNext">→</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--gain);"></span>Gain day</span>
+          <span><span class="swatch" style="background:var(--loss);"></span>Loss day</span>
+          <span><span class="swatch" style="background:var(--surface-2);"></span>No trades</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Backup</h2></div>
+        <div class="util-row">
+          <button id="exportBtn">Export JSON</button>
+          <button id="importBtn">Import JSON</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json" style="display:none;">
+        <div class="util-row" style="margin-top:8px;">
+          <button id="resetBtn" class="btn-danger">Erase all data</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<footer>Stored locally in this browser only. Export a backup now and then. · Not financial advice.</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  var STORAGE_KEY = "tapeJournalData_v1";
+  var data = loadData();
+  var selectedDate = todayStr();
+  var calCursor = new Date(); // month currently shown in calendar
+  var editingId = null;
+  var currentSide = "long";
+
+  function loadData(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) return JSON.parse(raw);
+    }catch(e){}
+    return { trades: [], notes: {} };
+  }
+  function saveData(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+  function todayStr(){
+    var d = new Date();
+    return fmtDate(d);
+  }
+  function fmtDate(d){
+    var y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), day = String(d.getDate()).padStart(2,"0");
+    return y+"-"+m+"-"+day;
+  }
+  function parseDate(s){
+    var parts = s.split("-");
+    return new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
+  }
+  function money(n){
+    var sign = n < 0 ? "-" : "";
+    return sign + "$" + Math.abs(n).toFixed(2);
+  }
+  function uid(){
+    return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  }
+
+  // ---------- P&L calc ----------
+  function calcPnl(entry, exit, size, side){
+    entry = parseFloat(entry); exit = parseFloat(exit); size = parseFloat(size);
+    if(isNaN(entry) || isNaN(exit) || isNaN(size)) return 0;
+    var diff = exit - entry;
+    if(side === "short") diff = -diff;
+    return diff * size;
+  }
+
+  // ---------- Form ----------
+  var elSymbol = document.getElementById("f-symbol");
+  var elEntry = document.getElementById("f-entry");
+  var elExit = document.getElementById("f-exit");
+  var elSize = document.getElementById("f-size");
+  var elSetup = document.getElementById("f-setup");
+  var elNotes = document.getElementById("f-notes");
+  var elPnlPreview = document.getElementById("pnlPreview");
+  var elSideLong = document.getElementById("sideLong");
+  var elSideShort = document.getElementById("sideShort");
+  var elSaveTrade = document.getElementById("saveTrade");
+  var elCancelEdit = document.getElementById("cancelEdit");
+  var elFormTitle = document.getElementById("formTitle");
+
+  function setSide(side){
+    currentSide = side;
+    elSideLong.classList.toggle("active-long", side === "long");
+    elSideShort.classList.toggle("active-short", side === "short");
+    updatePreview();
+  }
+  elSideLong.addEventListener("click", function(){ setSide("long"); });
+  elSideShort.addEventListener("click", function(){ setSide("short"); });
+
+  function updatePreview(){
+    var pnl = calcPnl(elEntry.value, elExit.value, elSize.value, currentSide);
+    elPnlPreview.textContent = money(pnl);
+    elPnlPreview.style.color = pnl > 0 ? "var(--gain)" : (pnl < 0 ? "var(--loss)" : "var(--text-muted)");
+  }
+  [elEntry, elExit, elSize].forEach(function(el){ el.addEventListener("input", updatePreview); });
+
+  function resetForm(){
+    elSymbol.value = ""; elEntry.value = ""; elExit.value = ""; elSize.value = "";
+    elSetup.selectedIndex = 0; elNotes.value = "";
+    setSide("long");
+    editingId = null;
+    elFormTitle.textContent = "Log a trade";
+    elSaveTrade.textContent = "Add trade";
+    elCancelEdit.style.display = "none";
+    updatePreview();
+  }
+
+  elSaveTrade.addEventListener("click", function(){
+    var symbol = elSymbol.value.trim().toUpperCase();
+    if(!symbol){ elSymbol.focus(); return; }
+    if(elEntry.value === "" || elExit.value === "" || elSize.value === ""){ 
+      elEntry.focus(); return;
+    }
+    var pnl = calcPnl(elEntry.value, elExit.value, elSize.value, currentSide);
+    var trade = {
+      id: editingId || uid(),
+      date: selectedDate,
+      symbol: symbol,
+      side: currentSide,
+      entry: parseFloat(elEntry.value),
+      exit: parseFloat(elExit.value),
+      size: parseFloat(elSize.value),
+      setup: elSetup.value,
+      notes: elNotes.value.trim(),
+      pnl: pnl
+    };
+    if(editingId){
+      var idx = data.trades.findIndex(function(t){ return t.id === editingId; });
+      if(idx > -1) data.trades[idx] = trade;
+    } else {
+      data.trades.push(trade);
+    }
+    saveData();
+    resetForm();
+    renderAll();
+  });
+
+  elCancelEdit.addEventListener("click", resetForm);
+
+  function editTrade(id){
+    var t = data.trades.find(function(tr){ return tr.id === id; });
+    if(!t) return;
+    editingId = id;
+    elSymbol.value = t.symbol;
+    elEntry.value = t.entry;
+    elExit.value = t.exit;
+    elSize.value = t.size;
+    elSetup.value = t.setup;
+    elNotes.value = t.notes;
+    setSide(t.side);
+    elFormTitle.textContent = "Edit trade";
+    elSaveTrade.textContent = "Save changes";
+    elCancelEdit.style.display = "inline-block";
+    updatePreview();
+    window.scrollTo({top:0, behavior:"smooth"});
+  }
+  function deleteTrade(id, evt){
+    if(evt) evt.stopPropagation();
+    data.trades = data.trades.filter(function(t){ return t.id !== id; });
+    saveData();
+    if(editingId === id) resetForm();
+    renderAll();
+  }
+
+  // ---------- Date nav ----------
+  var elDateLabel = document.getElementById("dateLabel");
+  var elDatePicker = document.getElementById("datePicker");
+  document.getElementById("prevDay").addEventListener("click", function(){ shiftDay(-1); });
+  document.getElementById("nextDay").addEventListener("click", function(){ shiftDay(1); });
+  document.getElementById("todayBtn").addEventListener("click", function(){ setSelectedDate(todayStr()); });
+  elDatePicker.addEventListener("change", function(){ if(elDatePicker.value) setSelectedDate(elDatePicker.value); });
+
+  function shiftDay(delta){
+    var d = parseDate(selectedDate);
+    d.setDate(d.getDate() + delta);
+    setSelectedDate(fmtDate(d));
+  }
+  function setSelectedDate(ds){
+    selectedDate = ds;
+    calCursor = parseDate(ds);
+    resetForm();
+    renderAll();
+  }
+
+  var WEEKDAY = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  var MONTH = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  function renderDateLabel(){
+    var d = parseDate(selectedDate);
+    elDateLabel.textContent = WEEKDAY[d.getDay()] + ", " + MONTH[d.getMonth()] + " " + d.getDate();
+    elDatePicker.value = selectedDate;
+  }
+
+  // ---------- Ledger table ----------
+  var elTradeRows = document.getElementById("tradeRows");
+  var elEmptyState = document.getElementById("emptyState");
+  var elDayCount = document.getElementById("dayCount");
+
+  function tradesForDay(ds){
+    return data.trades.filter(function(t){ return t.date === ds; });
+  }
+
+  function renderLedger(){
+    var trades = tradesForDay(selectedDate);
+    elDayCount.textContent = trades.length + (trades.length === 1 ? " trade" : " trades");
+    elTradeRows.innerHTML = "";
+    elEmptyState.style.display = trades.length ? "none" : "block";
+    trades.forEach(function(t){
+      var tr = document.createElement("tr");
+      tr.className = "trade-row";
+      var pnlClass = t.pnl > 0 ? "up" : (t.pnl < 0 ? "down" : "");
+      tr.innerHTML =
+        '<td><strong>'+escapeHtml(t.symbol)+'</strong></td>'+
+        '<td>'+(t.side === "long" ? "Long" : "Short")+'</td>'+
+        '<td class="mono">'+t.entry+'</td>'+
+        '<td class="mono">'+t.exit+'</td>'+
+        '<td class="mono">'+t.size+'</td>'+
+        '<td><span class="tag-pill">'+escapeHtml(t.setup)+'</span></td>'+
+        '<td class="pnl-cell '+pnlClass+'">'+money(t.pnl)+'</td>'+
+        '<td><div class="row-actions">'+
+          '<button data-act="edit" data-id="'+t.id+'">Edit</button>'+
+          '<button data-act="del" data-id="'+t.id+'" class="btn-danger">Del</button>'+
+        '</div></td>';
+      tr.addEventListener("click", function(e){
+        if(e.target.tagName === "BUTTON") return;
+        editTrade(t.id);
+      });
+      elTradeRows.appendChild(tr);
+      tr.querySelector('[data-act="edit"]').addEventListener("click", function(e){ e.stopPropagation(); editTrade(t.id); });
+      tr.querySelector('[data-act="del"]').addEventListener("click", function(e){ deleteTrade(t.id, e); });
+    });
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  // ---------- Reflection ----------
+  var elReflectionText = document.getElementById("reflectionText");
+  var elMoodRow = document.getElementById("moodRow");
+  var selectedMoods = [];
+
+  elMoodRow.addEventListener("click", function(e){
+    var chip = e.target.closest(".mood-chip");
+    if(!chip) return;
+    var mood = chip.dataset.mood;
+    var idx = selectedMoods.indexOf(mood);
+    if(idx > -1){ selectedMoods.splice(idx,1); chip.classList.remove("active"); }
+    else { selectedMoods.push(mood); chip.classList.add("active"); }
+  });
+
+  document.getElementById("saveReflection").addEventListener("click", function(){
+    data.notes[selectedDate] = { text: elReflectionText.value, moods: selectedMoods.slice() };
+    saveData();
+    var btn = document.getElementById("saveReflection");
+    var original = btn.textContent;
+    btn.textContent = "Saved";
+    setTimeout(function(){ btn.textContent = original; }, 1200);
+  });
+
+  function renderReflection(){
+    var entry = data.notes[selectedDate] || { text:"", moods:[] };
+    elReflectionText.value = entry.text || "";
+    selectedMoods = (entry.moods || []).slice();
+    Array.prototype.forEach.call(elMoodRow.children, function(chip){
+      chip.classList.toggle("active", selectedMoods.indexOf(chip.dataset.mood) > -1);
+    });
+  }
+
+  // ---------- Stats ----------
+  function renderStats(){
+    var trades = data.trades;
+    var total = trades.reduce(function(s,t){ return s + t.pnl; }, 0);
+    var wins = trades.filter(function(t){ return t.pnl > 0; });
+    var losses = trades.filter(function(t){ return t.pnl < 0; });
+    var winRate = (wins.length + losses.length) ? (wins.length / (wins.length + losses.length) * 100) : null;
+    var avgWin = wins.length ? wins.reduce(function(s,t){return s+t.pnl;},0) / wins.length : 0;
+    var avgLoss = losses.length ? losses.reduce(function(s,t){return s+t.pnl;},0) / losses.length : 0;
+    var grossWin = wins.reduce(function(s,t){return s+t.pnl;},0);
+    var grossLoss = Math.abs(losses.reduce(function(s,t){return s+t.pnl;},0));
+    var pf = grossLoss > 0 ? (grossWin / grossLoss) : (grossWin > 0 ? Infinity : null);
+
+    document.getElementById("statTotal").textContent = money(total);
+    document.getElementById("statTotal").className = "value " + (total > 0 ? "up" : (total < 0 ? "down" : ""));
+    document.getElementById("statWinRate").textContent = winRate === null ? "—" : winRate.toFixed(0) + "%";
+    document.getElementById("statAvgWin").textContent = money(avgWin);
+    document.getElementById("statAvgLoss").textContent = money(avgLoss);
+    document.getElementById("statPF").textContent = (pf === null) ? "—" : (pf === Infinity ? "∞" : pf.toFixed(2));
+
+    // streak: order by date then insertion
+    var ordered = trades.slice().sort(function(a,b){
+      if(a.date === b.date) return 0;
+      return a.date < b.date ? -1 : 1;
+    });
+    var streak = 0, streakType = null;
+    for(var i = ordered.length - 1; i >= 0; i--){
+      var t = ordered[i];
+      if(t.pnl === 0) break;
+      var type = t.pnl > 0 ? "W" : "L";
+      if(streakType === null){ streakType = type; streak = 1; }
+      else if(type === streakType){ streak++; }
+      else break;
+    }
+    var streakEl = document.getElementById("statStreak");
+    streakEl.textContent = streak ? (streak + (streakType === "W" ? " win" : " loss") + (streak>1?"es":"")) : "—";
+    streakEl.className = "value " + (streakType === "W" ? "up" : (streakType === "L" ? "down" : ""));
+  }
+
+  // ---------- Ticker tape ----------
+  function renderTape(){
+    var track = document.getElementById("tapeTrack");
+    var trades = data.trades.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; }).slice(0, 24);
+    var itemsHtml;
+    if(!trades.length){
+      itemsHtml = '<div class="tape-item"><span class="tape-empty">LOG YOUR FIRST TRADE TO SEE IT ON THE TAPE</span></div>'.repeat(6);
+    } else {
+      itemsHtml = trades.map(function(t){
+        var up = t.pnl >= 0;
+        return '<div class="tape-item">'+
+          '<span class="sym">'+escapeHtml(t.symbol)+'</span>'+
+          '<span class="arrow">'+(t.side==="long"?"▲":"▼")+'</span>'+
+          '<span class="pnl '+(up?"up":"down")+'">'+money(t.pnl)+'</span>'+
+        '</div>';
+      }).join("");
+    }
+    // duplicate for seamless loop
+    track.innerHTML = itemsHtml + itemsHtml;
+  }
+
+  // ---------- Calendar heatmap ----------
+  var elCalGrid = document.getElementById("calGrid");
+  var elCalLabel = document.getElementById("calLabel");
+  document.getElementById("calPrev").addEventListener("click", function(){
+    calCursor.setMonth(calCursor.getMonth() - 1);
+    renderCalendar();
+  });
+  document.getElementById("calNext").addEventListener("click", function(){
+    calCursor.setMonth(calCursor.getMonth() + 1);
+    renderCalendar();
+  });
+
+  function pnlByDay(){
+    var map = {};
+    data.trades.forEach(function(t){
+      map[t.date] = (map[t.date] || 0) + t.pnl;
+    });
+    return map;
+  }
+
+  function renderCalendar(){
+    elCalLabel.textContent = MONTH[calCursor.getMonth()] + " " + calCursor.getFullYear();
+    elCalGrid.innerHTML = "";
+    ["S","M","T","W","T","F","S"].forEach(function(d){
+      var el = document.createElement("div");
+      el.className = "cal-dow";
+      el.textContent = d;
+      elCalGrid.appendChild(el);
+    });
+    var year = calCursor.getFullYear(), month = calCursor.getMonth();
+    var firstDow = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month+1, 0).getDate();
+    var byDay = pnlByDay();
+    var maxAbs = 1;
+    Object.keys(byDay).forEach(function(k){
+      var d = parseDate(k);
+      if(d.getFullYear()===year && d.getMonth()===month) maxAbs = Math.max(maxAbs, Math.abs(byDay[k]));
+    });
+
+    for(var i=0;i<firstDow;i++){
+      var blank = document.createElement("div");
+      blank.className = "cal-day blank";
+      elCalGrid.appendChild(blank);
+    }
+    for(var day=1; day<=daysInMonth; day++){
+      var ds = fmtDate(new Date(year, month, day));
+      var cell = document.createElement("div");
+      cell.className = "cal-day";
+      cell.textContent = day;
+      if(ds === todayStr()) cell.classList.add("today");
+      if(ds === selectedDate) cell.classList.add("selected");
+      var pnl = byDay[ds];
+      if(pnl !== undefined && pnl !== 0){
+        var intensity = 0.18 + 0.65 * Math.min(1, Math.abs(pnl) / maxAbs);
+        var color = pnl > 0 ? "63,167,150" : "193,68,60";
+        cell.style.background = "rgba("+color+","+intensity.toFixed(2)+")";
+        cell.style.color = "#f2efe6";
+        cell.style.borderColor = "transparent";
+        cell.title = money(pnl);
+      }
+      cell.addEventListener("click", function(dsClicked){
+        return function(){ setSelectedDate(dsClicked); };
+      }(ds));
+      elCalGrid.appendChild(cell);
+    }
+  }
+
+  // ---------- Backup ----------
+  document.getElementById("exportBtn").addEventListener("click", function(){
+    var blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "trading-journal-backup-" + todayStr() + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+  var importFile = document.getElementById("importFile");
+  document.getElementById("importBtn").addEventListener("click", function(){ importFile.click(); });
+  importFile.addEventListener("change", function(){
+    var file = importFile.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        var parsed = JSON.parse(e.target.result);
+        if(!parsed || !Array.isArray(parsed.trades)) throw new Error("bad format");
+        data = { trades: parsed.trades, notes: parsed.notes || {} };
+        saveData();
+        renderAll();
+        alert("Import complete.");
+      }catch(err){
+        alert("Could not read that file. Make sure it's a journal export.");
+      }
+    };
+    reader.readAsText(file);
+    importFile.value = "";
+  });
+  document.getElementById("resetBtn").addEventListener("click", function(){
+    if(confirm("This permanently erases all trades and notes in this browser. Export a backup first if you want to keep them. Continue?")){
+      data = { trades: [], notes: {} };
+      saveData();
+      renderAll();
+    }
+  });
+
+  // ---------- Header badge ----------
+  function renderBadge(){
+    var d = new Date();
+    document.getElementById("todayBadge").textContent = WEEKDAY[d.getDay()].slice(0,3) + " " + MONTH[d.getMonth()].slice(0,3) + " " + d.getDate();
+  }
+
+  // ---------- Render all ----------
+  function renderAll(){
+    renderDateLabel();
+    renderLedger();
+    renderReflection();
+    renderStats();
+    renderTape();
+    renderCalendar();
+  }
+
+  renderBadge();
+  setSide("long");
+  renderAll();
+})();
+</script>
+</body>
+</html>
