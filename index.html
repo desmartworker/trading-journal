@@ -210,6 +210,14 @@
   .eq-tip-bg{fill:var(--text);opacity:0.92;}
   .eq-tip-text{font-size:11px;fill:var(--bg);font-family:'IBM Plex Mono',monospace;}
 
+  .sync-status{font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:20px;background:var(--surface-2);color:var(--text-muted);white-space:nowrap;}
+  .sync-status.ok{background:var(--gain-bg);color:var(--gain);}
+  .sync-status.pending{background:rgba(169,129,46,0.14);color:var(--amber);}
+  .sync-status.error{background:var(--loss-bg);color:var(--loss);}
+  .sync-hint{font-size:11.5px;color:var(--text-muted);line-height:1.5;margin:10px 0 0;}
+  #syncConnected .util-row a.btn-ghost{flex:1;}
+  #syncConnected .util-row button{flex:1;}
+
   /* Stats */
   .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .stat{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
@@ -599,6 +607,39 @@
         </div>
       </div>
 
+      <div class="card">
+        <div class="card-head">
+          <h2>GitHub sync</h2>
+          <span class="sync-status" id="syncStatus">Not connected</span>
+        </div>
+        <div id="syncSetup">
+          <div class="form-grid form-grid-2">
+            <div class="field full">
+              <label for="syncToken">Personal access token</label>
+              <input id="syncToken" type="password" placeholder="ghp_… (gist scope only)" autocomplete="off">
+            </div>
+            <div class="field full">
+              <label for="syncGistId">Gist ID <span style="text-transform:none;font-weight:400;">(leave blank to create one)</span></label>
+              <input id="syncGistId" type="text" placeholder="e.g. 1a2b3c4d5e6f...">
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top:10px;">
+            <button id="syncConnectBtn" class="btn-primary">Connect &amp; sync</button>
+          </div>
+          <p class="sync-hint">Create a token at github.com/settings/tokens with the <strong>gist</strong> scope only. It's stored in this browser's local storage, never sent anywhere except api.github.com.</p>
+        </div>
+        <div id="syncConnected" style="display:none;">
+          <div class="util-row">
+            <button id="syncPushBtn">Push now</button>
+            <button id="syncPullBtn">Pull latest</button>
+          </div>
+          <div class="util-row" style="margin-top:8px;">
+            <a id="syncGistLink" href="#" target="_blank" rel="noopener" class="btn-ghost" style="display:inline-block;text-decoration:none;text-align:center;">View gist ↗</a>
+            <button id="syncDisconnectBtn" class="btn-danger">Disconnect</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </main>
@@ -718,6 +759,9 @@
       var raw = localStorage.getItem(STORAGE_KEY);
       d = raw ? JSON.parse(raw) : null;
     }catch(e){ d = null; }
+    return normalizeData(d);
+  }
+  function normalizeData(d){
     if(!d) d = { trades: [], notes: {} };
     if(!d.trades) d.trades = [];
     if(!d.notes) d.notes = {};
@@ -751,6 +795,7 @@
   }
   function saveData(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    scheduleSyncPush();
   }
   function todayStr(){
     var d = new Date();
@@ -1662,6 +1707,187 @@
       renderAll();
     }
   });
+
+  // ---------- GitHub Gist sync ----------
+  var SYNC_CONFIG_KEY = "tapeJournalSync_v1";
+  var GIST_FILENAME = "trading-journal-data.json";
+  var syncConfig = loadSyncConfig();
+  var syncTimer = null;
+  var syncInFlight = false;
+  var suppressNextPush = false;
+
+  function loadSyncConfig(){
+    try{
+      var raw = localStorage.getItem(SYNC_CONFIG_KEY);
+      var cfg = raw ? JSON.parse(raw) : null;
+      if(!cfg) cfg = {};
+      return { token: cfg.token || "", gistId: cfg.gistId || "", lastSynced: cfg.lastSynced || null };
+    }catch(e){
+      return { token: "", gistId: "", lastSynced: null };
+    }
+  }
+  function saveSyncConfig(){
+    localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig));
+  }
+  function isSyncConfigured(){
+    return !!(syncConfig.token && syncConfig.gistId);
+  }
+
+  var elSyncStatus = document.getElementById("syncStatus");
+  var elSyncSetup = document.getElementById("syncSetup");
+  var elSyncConnected = document.getElementById("syncConnected");
+  var elSyncToken = document.getElementById("syncToken");
+  var elSyncGistId = document.getElementById("syncGistId");
+  var elSyncGistLink = document.getElementById("syncGistLink");
+
+  function setSyncStatus(text, cls){
+    elSyncStatus.textContent = text;
+    elSyncStatus.className = "sync-status" + (cls ? " " + cls : "");
+  }
+  function fmtSyncTime(iso){
+    if(!iso) return "";
+    var d = new Date(iso);
+    return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  }
+  function refreshSyncUI(){
+    if(isSyncConfigured()){
+      elSyncSetup.style.display = "none";
+      elSyncConnected.style.display = "block";
+      elSyncGistLink.href = "https://gist.github.com/" + syncConfig.gistId;
+      setSyncStatus(syncConfig.lastSynced ? ("Synced " + fmtSyncTime(syncConfig.lastSynced)) : "Connected", syncConfig.lastSynced ? "ok" : "");
+    } else {
+      elSyncSetup.style.display = "block";
+      elSyncConnected.style.display = "none";
+      elSyncToken.value = syncConfig.token || "";
+      elSyncGistId.value = syncConfig.gistId || "";
+      setSyncStatus("Not connected", "");
+    }
+  }
+
+  function scheduleSyncPush(){
+    if(!isSyncConfigured()) return;
+    if(suppressNextPush){ suppressNextPush = false; return; }
+    clearTimeout(syncTimer);
+    setSyncStatus("Pending sync…", "pending");
+    syncTimer = setTimeout(pushToGist, 2000);
+  }
+
+  function githubHeaders(){
+    var h = { "Accept": "application/vnd.github+json" };
+    if(syncConfig.token) h["Authorization"] = "token " + syncConfig.token;
+    return h;
+  }
+
+  function pushToGist(){
+    if(!isSyncConfigured() || syncInFlight) return;
+    syncInFlight = true;
+    setSyncStatus("Syncing…", "pending");
+    var files = {};
+    files[GIST_FILENAME] = { content: JSON.stringify(data, null, 2) };
+    fetch("https://api.github.com/gists/" + syncConfig.gistId, {
+      method: "PATCH",
+      headers: Object.assign(githubHeaders(), { "Content-Type": "application/json" }),
+      body: JSON.stringify({ files: files })
+    }).then(function(res){
+      if(!res.ok) return res.text().then(function(t){ throw new Error("HTTP " + res.status + " " + t.slice(0,150)); });
+      return res.json();
+    }).then(function(){
+      syncConfig.lastSynced = new Date().toISOString();
+      saveSyncConfig();
+      setSyncStatus("Synced " + fmtSyncTime(syncConfig.lastSynced), "ok");
+    }).catch(function(err){
+      setSyncStatus("Push failed: " + err.message, "error");
+    }).finally(function(){
+      syncInFlight = false;
+    });
+  }
+
+  function createGist(){
+    setSyncStatus("Creating gist…", "pending");
+    var files = {};
+    files[GIST_FILENAME] = { content: JSON.stringify(data, null, 2) };
+    return fetch("https://api.github.com/gists", {
+      method: "POST",
+      headers: Object.assign(githubHeaders(), { "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        description: "Funded Trading Journal data",
+        public: false,
+        files: files
+      })
+    }).then(function(res){
+      if(!res.ok) return res.text().then(function(t){ throw new Error("HTTP " + res.status + " " + t.slice(0,150)); });
+      return res.json();
+    }).then(function(json){
+      syncConfig.gistId = json.id;
+      syncConfig.lastSynced = new Date().toISOString();
+      saveSyncConfig();
+    });
+  }
+
+  function pullFromGist(confirmOverwrite){
+    if(!syncConfig.gistId){ setSyncStatus("No gist ID set", "error"); return; }
+    setSyncStatus("Pulling…", "pending");
+    return fetch("https://api.github.com/gists/" + syncConfig.gistId, { headers: githubHeaders() })
+      .then(function(res){
+        if(!res.ok) return res.text().then(function(t){ throw new Error("HTTP " + res.status + " " + t.slice(0,150)); });
+        return res.json();
+      })
+      .then(function(json){
+        var files = json.files || {};
+        var file = files[GIST_FILENAME] || files[Object.keys(files)[0]];
+        if(!file || !file.content) throw new Error("Gist has no journal file");
+        var parsed = JSON.parse(file.content);
+        if(!parsed || !Array.isArray(parsed.trades)) throw new Error("Gist content isn't a valid journal export");
+        if(confirmOverwrite && !confirm("Pull the latest data from GitHub? This replaces the journal currently on this device.")){
+          setSyncStatus("Pull cancelled", "");
+          return;
+        }
+        data = normalizeData(parsed);
+        suppressNextPush = true;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        activeFirmFilter = "All";
+        currentFormAccountId = data.accounts[0] ? data.accounts[0].id : null;
+        syncConfig.lastSynced = new Date().toISOString();
+        saveSyncConfig();
+        renderAccountTabs();
+        renderFormAccountSelect();
+        renderAll();
+        setSyncStatus("Synced " + fmtSyncTime(syncConfig.lastSynced), "ok");
+      })
+      .catch(function(err){
+        setSyncStatus("Pull failed: " + err.message, "error");
+      });
+  }
+
+  document.getElementById("syncConnectBtn").addEventListener("click", function(){
+    var token = elSyncToken.value.trim();
+    var gistId = elSyncGistId.value.trim();
+    if(!token){ elSyncToken.focus(); return; }
+    syncConfig.token = token;
+    syncConfig.gistId = gistId;
+    saveSyncConfig();
+    if(gistId){
+      pullFromGist(true).then(refreshSyncUI);
+    } else {
+      createGist().then(function(){
+        refreshSyncUI();
+        pushToGist();
+      }).catch(function(err){
+        setSyncStatus("Connect failed: " + err.message, "error");
+      });
+    }
+    refreshSyncUI();
+  });
+  document.getElementById("syncPushBtn").addEventListener("click", function(){ pushToGist(); });
+  document.getElementById("syncPullBtn").addEventListener("click", function(){ pullFromGist(true).then(refreshSyncUI); });
+  document.getElementById("syncDisconnectBtn").addEventListener("click", function(){
+    if(!confirm("Disconnect from GitHub sync? Your gist itself won't be deleted, and your local journal data stays on this device.")) return;
+    syncConfig = { token: "", gistId: "", lastSynced: null };
+    saveSyncConfig();
+    refreshSyncUI();
+  });
+
+  refreshSyncUI();
 
   // ---------- New York clock ----------
   function updateNyClock(){
