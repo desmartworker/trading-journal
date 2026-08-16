@@ -181,6 +181,7 @@
 
   /* Reflection */
   textarea{width:100%;min-height:110px;resize:vertical;line-height:1.5;font-size:13.5px;}
+  .field-textarea{min-height:64px;line-height:1.45;}
   .mood-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px;}
   .mood-chip{
     font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);
@@ -442,7 +443,7 @@
             </div>
             <div class="field full">
               <label for="f-analysis">Analysis / plan</label>
-              <input id="f-analysis" type="text" placeholder="Bias, key levels, confirmation you're waiting for...">
+              <textarea id="f-analysis" class="field-textarea" placeholder="Bias, key levels, confirmation you're waiting for...&#10;1. &#10;2. "></textarea>
             </div>
           </div>
         </div>
@@ -468,9 +469,9 @@
               <label for="f-exit">Exit price</label>
               <input id="f-exit" type="number" step="any" placeholder="Fill once closed">
             </div>
-            <div class="field">
+            <div class="field full">
               <label for="f-result-notes">Result notes</label>
-              <input id="f-result-notes" type="text" placeholder="What happened? Lesson learned?">
+              <textarea id="f-result-notes" class="field-textarea" placeholder="What happened? Lesson learned?&#10;1. &#10;2. "></textarea>
             </div>
           </div>
         </div>
@@ -1247,33 +1248,36 @@
     var elDrawdown = document.getElementById("eqDrawdown");
     var trades = filteredTrades().filter(isClosed);
     var starting = computeStartingBalance();
+    var hasTrades = trades.length > 0;
 
-    if(!trades.length){
-      svg.innerHTML = "";
-      svg.style.display = "none";
-      emptyEl.style.display = "block";
-      rangeEl.textContent = "—";
-      elCurrent.textContent = money(starting);
-      elCurrent.className = "value mono";
-      elGrowth.textContent = "—";
-      elGrowth.className = "value mono";
-      elDrawdown.textContent = "—";
-      return;
-    }
     svg.style.display = "block";
     emptyEl.style.display = "none";
 
-    // Sum P&L per day, then build a cumulative equity series in date order.
-    var byDate = {};
-    trades.forEach(function(t){ byDate[t.date] = (byDate[t.date] || 0) + t.pnl; });
-    var dates = Object.keys(byDate).sort(function(a,b){ return a < b ? -1 : (a > b ? 1 : 0); });
+    var points, firstLabel, lastLabel;
 
-    var points = [{ date: null, equity: starting }];
-    var running = starting;
-    dates.forEach(function(d){
-      running += byDate[d];
-      points.push({ date: d, equity: running });
-    });
+    if(hasTrades){
+      // Sum P&L per day, then build a cumulative equity series in date order.
+      var byDate = {};
+      trades.forEach(function(t){ byDate[t.date] = (byDate[t.date] || 0) + t.pnl; });
+      var dates = Object.keys(byDate).sort(function(a,b){ return a < b ? -1 : (a > b ? 1 : 0); });
+
+      points = [{ date: null, equity: starting }];
+      var running = starting;
+      dates.forEach(function(d){
+        running += byDate[d];
+        points.push({ date: d, equity: running });
+      });
+      firstLabel = fmtShortDate(dates[0]);
+      lastLabel = fmtShortDate(dates[dates.length - 1]);
+    } else {
+      // No closed trades yet — plot a flat line at the combined starting balance.
+      points = [
+        { date: null, equity: starting },
+        { date: null, equity: starting }
+      ];
+      firstLabel = "Start";
+      lastLabel = "Today";
+    }
 
     // Track running peak to size the drawdown band and the headline stat.
     var peak = points[0].equity;
@@ -1301,9 +1305,7 @@
       ? "-" + Math.abs(maxDDPct).toFixed(2) + "% (" + money(maxDD) + ")"
       : "0.00%";
 
-    var firstLabel = fmtShortDate(dates[0]);
-    var lastLabel = fmtShortDate(dates[dates.length - 1]);
-    rangeEl.textContent = firstLabel + " – " + lastLabel;
+    rangeEl.textContent = hasTrades ? (firstLabel + " – " + lastLabel) : "Balance only · no closed trades yet";
 
     // Geometry: size the coordinate space to the actual rendered width so nothing distorts.
     var H = 260;
@@ -1316,7 +1318,7 @@
     var values = points.map(function(p){ return p.equity; });
     var minV = Math.min.apply(null, values);
     var maxV = Math.max.apply(null, values);
-    if(minV === maxV){ minV -= 1; maxV += 1; }
+    if(minV === maxV){ minV -= Math.max(1, Math.abs(minV) * 0.1 || 1); maxV += Math.max(1, Math.abs(maxV) * 0.1 || 1); }
     var vPad = (maxV - minV) * 0.08;
     minV -= vPad; maxV += vPad;
     var vSpan = maxV - minV;
@@ -1347,11 +1349,19 @@
     var zeroY = yAt(starting);
     gridLines += '<line class="eq-zero-line" x1="'+padL+'" y1="'+zeroY.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+zeroY.toFixed(1)+'"></line>';
 
-    var dotsHtml = points.map(function(p,i){
-      if(i === 0) return "";
-      var label = fmtShortDate(p.date) + ": " + money(p.equity);
-      return '<circle class="eq-dot" cx="'+xAt(i).toFixed(1)+'" cy="'+yAt(p.equity).toFixed(1)+'" r="3" style="stroke:'+curveColor+';"><title>'+escapeHtml(label)+'</title></circle>';
-    }).join("");
+    var dotsHtml;
+    if(hasTrades){
+      dotsHtml = points.map(function(p,i){
+        if(i === 0) return "";
+        var label = fmtShortDate(p.date) + ": " + money(p.equity);
+        return '<circle class="eq-dot" cx="'+xAt(i).toFixed(1)+'" cy="'+yAt(p.equity).toFixed(1)+'" r="3" style="stroke:'+curveColor+';"><title>'+escapeHtml(label)+'</title></circle>';
+      }).join("");
+    } else {
+      var label0 = "Starting balance: " + money(starting);
+      dotsHtml =
+        '<circle class="eq-dot" cx="'+xAt(0).toFixed(1)+'" cy="'+yAt(starting).toFixed(1)+'" r="3" style="stroke:'+curveColor+';"><title>'+escapeHtml(label0)+'</title></circle>' +
+        '<circle class="eq-dot" cx="'+xAt(1).toFixed(1)+'" cy="'+yAt(starting).toFixed(1)+'" r="3" style="stroke:'+curveColor+';"><title>'+escapeHtml(label0)+'</title></circle>';
+    }
 
     svg.innerHTML =
       '<defs><linearGradient id="eqAreaGradient" x1="0" y1="0" x2="0" y2="1">' +
