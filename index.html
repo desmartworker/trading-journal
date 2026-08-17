@@ -247,6 +247,14 @@
   .sync-hint{font-size:11.5px;color:var(--text-muted);line-height:1.5;margin:10px 0 0;}
   #syncConnected .util-row a.btn-ghost{flex:1;}
   #syncConnected .util-row button{flex:1;}
+  .gist-picker-item{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:10px 12px;border:1px solid var(--border);border-radius:8px;
+    margin-bottom:8px;background:var(--surface-2);
+  }
+  .gist-picker-item .meta{font-size:11.5px;color:var(--text-muted);line-height:1.5;}
+  .gist-picker-item .meta strong{color:var(--text);font-weight:600;}
+  .gist-picker-item button{white-space:nowrap;}
 
   /* Stats */
   .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
@@ -691,6 +699,7 @@
             </div>
           </details>
           <p class="sync-hint">Create a token at github.com/settings/tokens with the <strong>gist</strong> scope only. It's stored in this browser's local storage, never sent anywhere except api.github.com. Paste the same token on any device and it automatically finds and reconnects to your one journal gist — no Gist ID needed.</p>
+          <div id="syncPickerWrap" style="display:none;margin-top:12px;"></div>
         </div>
         <div id="syncConnected" style="display:none;">
           <div class="util-row">
@@ -1916,7 +1925,7 @@
     });
   }
 
-  function findExistingGist(){
+  function findJournalGists(){
     setSyncStatus("Looking for existing journal gist…", "pending");
     return fetch("https://api.github.com/gists?per_page=100", { headers: githubHeaders() })
       .then(function(res){
@@ -1924,8 +1933,9 @@
         return res.json();
       })
       .then(function(list){
-        var match = Array.isArray(list) ? list.find(function(g){ return g.files && g.files[GIST_FILENAME]; }) : null;
-        return match ? match.id : null;
+        var matches = Array.isArray(list) ? list.filter(function(g){ return g.files && g.files[GIST_FILENAME]; }) : [];
+        matches.sort(function(a,b){ return new Date(b.updated_at) - new Date(a.updated_at); });
+        return matches;
       });
   }
 
@@ -1973,6 +1983,33 @@
       });
   }
 
+  var elSyncPickerWrap = document.getElementById("syncPickerWrap");
+
+  function renderGistPicker(matches){
+    elSyncPickerWrap.style.display = "block";
+    var html = '<p class="sync-hint" style="margin-top:0;">Found ' + matches.length + ' journal gists under this token — pick the one with your real data (usually the most recently updated one):</p>';
+    matches.forEach(function(g){
+      var updated = new Date(g.updated_at);
+      var updatedStr = updated.toLocaleDateString() + " " + updated.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+      var file = g.files[GIST_FILENAME];
+      var sizeKb = file && file.size ? (file.size/1024).toFixed(1) + " KB" : "";
+      html += '<div class="gist-picker-item">' +
+        '<div class="meta"><strong>' + escapeHtml(g.id.slice(0,10)) + '…</strong><br>Updated ' + escapeHtml(updatedStr) + (sizeKb ? " · " + sizeKb : "") + '</div>' +
+        '<button type="button" class="btn-primary gist-pick-btn" data-gist-id="' + escapeHtml(g.id) + '">Use this one</button>' +
+      '</div>';
+    });
+    elSyncPickerWrap.innerHTML = html;
+    elSyncPickerWrap.querySelectorAll(".gist-pick-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        syncConfig.gistId = btn.getAttribute("data-gist-id");
+        saveSyncConfig();
+        elSyncPickerWrap.style.display = "none";
+        elSyncPickerWrap.innerHTML = "";
+        pullFromGist(false).then(refreshSyncUI);
+      });
+    });
+  }
+
   document.getElementById("syncConnectBtn").addEventListener("click", function(){
     var token = elSyncToken.value.trim();
     var gistId = elSyncGistId.value.trim();
@@ -1980,19 +2017,27 @@
     syncConfig.token = token;
     syncConfig.gistId = gistId;
     saveSyncConfig();
+    elSyncPickerWrap.style.display = "none";
+    elSyncPickerWrap.innerHTML = "";
     if(gistId){
       pullFromGist(true).then(refreshSyncUI);
     } else {
-      // No Gist ID given — look for an existing journal gist under this token
-      // before creating a new one, so the same token reconnects to the same data.
-      findExistingGist().then(function(foundId){
-        if(foundId){
-          syncConfig.gistId = foundId;
-          saveSyncConfig();
-          return pullFromGist(false);
+      // No Gist ID given — look for existing journal gists under this token.
+      // If there's exactly one, use it automatically. If there's more than
+      // one (e.g. from earlier testing before this picker existed), show a
+      // picker instead of silently guessing which one is the real data.
+      findJournalGists().then(function(matches){
+        if(matches.length === 0){
+          return createGist().then(function(){ pushToGist(); }).then(refreshSyncUI);
         }
-        return createGist().then(function(){ pushToGist(); });
-      }).then(refreshSyncUI).catch(function(err){
+        if(matches.length === 1){
+          syncConfig.gistId = matches[0].id;
+          saveSyncConfig();
+          return pullFromGist(false).then(refreshSyncUI);
+        }
+        setSyncStatus("Multiple gists found", "pending");
+        renderGistPicker(matches);
+      }).catch(function(err){
         setSyncStatus("Connect failed: " + err.message, "error");
       });
     }
@@ -2008,6 +2053,16 @@
   });
 
   refreshSyncUI();
+
+  // If already connected on this device, silently pull the latest data from
+  // the gist as soon as the page loads — the gist is the single source of
+  // truth across devices, so we shouldn't need a manual "Pull" click every
+  // time the app is opened somewhere new. The page still renders local data
+  // immediately below (in case this fetch is slow or offline); the pull
+  // just quietly overwrites it with the freshest copy once it resolves.
+  if(isSyncConfigured()){
+    pullFromGist(false).then(refreshSyncUI);
+  }
 
   // ---------- New York clock ----------
   function updateNyClock(){
