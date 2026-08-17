@@ -162,7 +162,10 @@
   /* Date nav */
   .date-nav{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
   .date-nav .date-label{font-family:'Fraunces',serif;font-size:19px;font-weight:600;min-width:200px;}
-  .date-nav input[type="date"]{max-width:150px;}
+  .date-nav input[type="date"]{max-width:150px;min-width:0;}
+  @media (max-width:480px){
+    .date-nav input[type="date"]{max-width:none;flex:1 1 100%;}
+  }
 
   /* Trade form */
   .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
@@ -176,8 +179,8 @@
   .form-section:first-of-type{padding-top:0;}
   .form-section + .form-section{border-top:1px dashed var(--border);margin-top:14px;}
   .form-section .eyebrow{margin-bottom:10px;}
-  .side-toggle{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
-  .side-toggle button{flex:1;border:none;border-radius:0;background:var(--surface-2);}
+  .side-toggle{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;min-width:0;}
+  .side-toggle button{flex:1;border:none;border-radius:0;background:var(--surface-2);min-width:0;}
   .side-toggle button.active-long{background:var(--gain-bg);color:var(--gain);}
   .side-toggle button.active-short{background:var(--loss-bg);color:var(--loss);}
   .form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px;}
@@ -361,8 +364,8 @@
   .firm-tab .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;background:var(--gain);}
 
   /* Generic toggle group (side / prop firm in form) */
-  .toggle-group{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
-  .toggle-group button{flex:1;border:none;border-radius:0;background:var(--surface-2);white-space:nowrap;}
+  .toggle-group{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;min-width:0;}
+  .toggle-group button{flex:1;border:none;border-radius:0;background:var(--surface-2);white-space:nowrap;min-width:0;}
   .toggle-group button.active{background:var(--amber);color:var(--amber-text);}
 
   .firm-pill{
@@ -1459,8 +1462,12 @@
     rangeEl.textContent = hasTrades ? (firstLabel + " – " + lastLabel) : "Balance only · no closed trades yet";
 
     // Geometry: size the coordinate space to the actual rendered width so nothing distorts.
+    // No artificial floor here — forcing a minimum wider than the real container
+    // (e.g. on a narrow phone) would make the SVG's own box wider than its
+    // parent, pushing the whole card past the viewport edge.
     var H = 260;
-    var W = Math.max(320, svg.parentElement.clientWidth || 1000);
+    var measuredW = svg.parentElement.clientWidth;
+    var W = measuredW && measuredW > 0 ? measuredW : 1000;
     svg.setAttribute("viewBox", "0 0 " + W + " " + H);
     var padL = 46, padR = 14, padT = 16, padB = 26;
     var plotW = W - padL - padR;
