@@ -1881,6 +1881,38 @@
     return h;
   }
 
+  // Turns a failed GitHub API response into a clear, actionable message
+  // instead of a raw HTTP status code and JSON body.
+  function githubErrorFromResponse(res, bodyText){
+    var msg;
+    if(res.status === 401){
+      msg = "Your token is invalid or has expired. Generate a new one at github.com/settings/tokens (with the \"gist\" scope) and reconnect.";
+    } else if(res.status === 403){
+      var isRateLimit = /rate limit/i.test(bodyText || "");
+      msg = isRateLimit
+        ? "GitHub's rate limit was hit. Wait a few minutes and try again."
+        : "Access denied. Check that your token has the \"gist\" scope enabled at github.com/settings/tokens, then reconnect.";
+    } else if(res.status === 404){
+      msg = "That gist couldn't be found — it may have been deleted from your GitHub account. Disconnect and reconnect to create a fresh one.";
+    } else if(res.status === 422){
+      msg = "GitHub rejected the data — it may be too large or in an unexpected format. Try exporting a backup and trimming old screenshots.";
+    } else if(res.status >= 500){
+      msg = "GitHub's servers are having issues right now (HTTP " + res.status + "). This isn't something to fix on your end — wait a few minutes and try again.";
+    } else {
+      msg = "Unexpected error from GitHub (HTTP " + res.status + "). If this keeps happening, check status.github.com for an ongoing outage.";
+    }
+    return new Error(msg);
+  }
+
+  // Wraps network-level failures (offline, blocked request, etc.) that never
+  // even reach GitHub, separately from GitHub's own API error responses.
+  function describeSyncError(err){
+    if(err && (err.message === "Failed to fetch" || err.name === "TypeError")){
+      return "Couldn't reach GitHub — check your internet connection and try again.";
+    }
+    return (err && err.message) ? err.message : "Something went wrong. Please try again.";
+  }
+
   function pushToGist(){
     if(!isSyncConfigured() || syncInFlight) return;
     syncInFlight = true;
@@ -1894,7 +1926,7 @@
       headers: Object.assign(githubHeaders(), { "Content-Type": "application/json" }),
       body: JSON.stringify({ files: files })
     }).then(function(res){
-      if(!res.ok) return res.text().then(function(t){ throw new Error("HTTP " + res.status + " " + t.slice(0,150)); });
+      if(!res.ok) return res.text().then(function(t){ throw githubErrorFromResponse(res, t); });
       return res.json();
     }).then(function(){
       syncConfig.lastSynced = new Date().toISOString();
@@ -1902,7 +1934,7 @@
       var note = sizeMb > 1 ? " — large journal (" + sizeMb.toFixed(1) + "MB), consider trimming old screenshots" : "";
       setSyncStatus("Synced " + fmtSyncTime(syncConfig.lastSynced) + note, "ok");
     }).catch(function(err){
-      setSyncStatus("Push failed: " + err.message, "error");
+      setSyncStatus("Push failed: " + describeSyncError(err), "error");
     }).finally(function(){
       syncInFlight = false;
     });
@@ -1921,7 +1953,7 @@
         files: files
       })
     }).then(function(res){
-      if(!res.ok) return res.text().then(function(t){ throw new Error("HTTP " + res.status + " " + t.slice(0,150)); });
+      if(!res.ok) return res.text().then(function(t){ throw githubErrorFromResponse(res, t); });
       return res.json();
     }).then(function(json){
       syncConfig.gistId = json.id;
@@ -1934,7 +1966,7 @@
     setSyncStatus("Looking for existing journal gist…", "pending");
     return fetch("https://api.github.com/gists?per_page=100", { headers: githubHeaders() })
       .then(function(res){
-        if(!res.ok) return res.text().then(function(t){ throw new Error("HTTP " + res.status + " " + t.slice(0,150)); });
+        if(!res.ok) return res.text().then(function(t){ throw githubErrorFromResponse(res, t); });
         return res.json();
       })
       .then(function(list){
@@ -1949,7 +1981,7 @@
     setSyncStatus("Pulling…", "pending");
     return fetch("https://api.github.com/gists/" + syncConfig.gistId, { headers: githubHeaders() })
       .then(function(res){
-        if(!res.ok) return res.text().then(function(t){ throw new Error("HTTP " + res.status + " " + t.slice(0,150)); });
+        if(!res.ok) return res.text().then(function(t){ throw githubErrorFromResponse(res, t); });
         return res.json();
       })
       .then(function(json){
@@ -1998,7 +2030,7 @@
         setSyncStatus("Synced " + fmtSyncTime(syncConfig.lastSynced), "ok");
       })
       .catch(function(err){
-        setSyncStatus("Pull failed: " + err.message, "error");
+        setSyncStatus("Pull failed: " + describeSyncError(err), "error");
       });
   }
 
@@ -2057,7 +2089,7 @@
         setSyncStatus("Multiple gists found", "pending");
         renderGistPicker(matches);
       }).catch(function(err){
-        setSyncStatus("Connect failed: " + err.message, "error");
+        setSyncStatus("Connect failed: " + describeSyncError(err), "error");
       });
     }
     refreshSyncUI();
