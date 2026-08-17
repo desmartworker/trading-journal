@@ -685,7 +685,7 @@
           <div class="form-actions" style="margin-top:10px;">
             <button id="syncConnectBtn" class="btn-primary">Connect &amp; sync</button>
           </div>
-          <p class="sync-hint">Create a token at github.com/settings/tokens with the <strong>gist</strong> scope only. It's stored in this browser's local storage, never sent anywhere except api.github.com.</p>
+          <p class="sync-hint">Create a token at github.com/settings/tokens with the <strong>gist</strong> scope only. It's stored in this browser's local storage, never sent anywhere except api.github.com. On another device, the same token alone will find and reconnect to your existing journal gist — Gist ID is only needed if you have more than one.</p>
         </div>
         <div id="syncConnected" style="display:none;">
           <div class="util-row">
@@ -1911,6 +1911,19 @@
     });
   }
 
+  function findExistingGist(){
+    setSyncStatus("Looking for existing journal gist…", "pending");
+    return fetch("https://api.github.com/gists?per_page=100", { headers: githubHeaders() })
+      .then(function(res){
+        if(!res.ok) return res.text().then(function(t){ throw new Error("HTTP " + res.status + " " + t.slice(0,150)); });
+        return res.json();
+      })
+      .then(function(list){
+        var match = Array.isArray(list) ? list.find(function(g){ return g.files && g.files[GIST_FILENAME]; }) : null;
+        return match ? match.id : null;
+      });
+  }
+
   function pullFromGist(confirmOverwrite){
     if(!syncConfig.gistId){ setSyncStatus("No gist ID set", "error"); return; }
     setSyncStatus("Pulling…", "pending");
@@ -1956,10 +1969,16 @@
     if(gistId){
       pullFromGist(true).then(refreshSyncUI);
     } else {
-      createGist().then(function(){
-        refreshSyncUI();
-        pushToGist();
-      }).catch(function(err){
+      // No Gist ID given — look for an existing journal gist under this token
+      // before creating a new one, so the same token reconnects to the same data.
+      findExistingGist().then(function(foundId){
+        if(foundId){
+          syncConfig.gistId = foundId;
+          saveSyncConfig();
+          return pullFromGist(false);
+        }
+        return createGist().then(function(){ pushToGist(); });
+      }).then(refreshSyncUI).catch(function(err){
         setSyncStatus("Connect failed: " + err.message, "error");
       });
     }
