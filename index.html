@@ -1815,7 +1815,6 @@
   var syncConfig = loadSyncConfig();
   var syncTimer = null;
   var syncInFlight = false;
-  var suppressNextPush = false;
 
   function loadSyncConfig(){
     try{
@@ -1867,7 +1866,6 @@
 
   function scheduleSyncPush(){
     if(!isSyncConfigured()) return;
-    if(suppressNextPush){ suppressNextPush = false; return; }
     clearTimeout(syncTimer);
     setSyncStatus("Pending sync…", "pending");
     syncTimer = setTimeout(pushToGist, 2000);
@@ -1882,9 +1880,11 @@
   function pushToGist(){
     if(!isSyncConfigured() || syncInFlight) return;
     syncInFlight = true;
-    setSyncStatus("Syncing…", "pending");
+    var payload = JSON.stringify(data, null, 2);
+    var sizeMb = new Blob([payload]).size / (1024*1024);
+    setSyncStatus(sizeMb > 0.8 ? "Syncing (large file, " + sizeMb.toFixed(1) + "MB)…" : "Syncing…", "pending");
     var files = {};
-    files[GIST_FILENAME] = { content: JSON.stringify(data, null, 2) };
+    files[GIST_FILENAME] = { content: payload };
     fetch("https://api.github.com/gists/" + syncConfig.gistId, {
       method: "PATCH",
       headers: Object.assign(githubHeaders(), { "Content-Type": "application/json" }),
@@ -1895,7 +1895,8 @@
     }).then(function(){
       syncConfig.lastSynced = new Date().toISOString();
       saveSyncConfig();
-      setSyncStatus("Synced " + fmtSyncTime(syncConfig.lastSynced), "ok");
+      var note = sizeMb > 1 ? " — large journal (" + sizeMb.toFixed(1) + "MB), consider trimming old screenshots" : "";
+      setSyncStatus("Synced " + fmtSyncTime(syncConfig.lastSynced) + note, "ok");
     }).catch(function(err){
       setSyncStatus("Push failed: " + err.message, "error");
     }).finally(function(){
@@ -1951,14 +1952,28 @@
         var files = json.files || {};
         var file = files[GIST_FILENAME] || files[Object.keys(files)[0]];
         if(!file || !file.content) throw new Error("Gist has no journal file");
-        var parsed = JSON.parse(file.content);
+        // GitHub's API truncates a file's `content` around 1MB when reading a
+        // gist. Journals with several chart screenshots (base64-encoded
+        // inside the JSON) can easily exceed that, silently cutting off data
+        // — including images — mid-file. When that happens, fetch the full
+        // raw file instead of trusting the truncated `content` field.
+        var contentPromise = file.truncated && file.raw_url
+          ? fetch(file.raw_url, { headers: githubHeaders() }).then(function(r){
+              if(!r.ok) throw new Error("Couldn't fetch full gist content (HTTP " + r.status + ")");
+              return r.text();
+            })
+          : Promise.resolve(file.content);
+        return contentPromise.then(function(rawContent){ return { rawContent: rawContent }; });
+      })
+      .then(function(result){
+        if(!result) return; // pull was cancelled upstream
+        var parsed = JSON.parse(result.rawContent);
         if(!parsed || !Array.isArray(parsed.trades)) throw new Error("Gist content isn't a valid journal export");
         if(confirmOverwrite && !confirm("Pull the latest data from GitHub? This replaces the journal currently on this device.")){
           setSyncStatus("Pull cancelled", "");
           return;
         }
         data = normalizeData(parsed);
-        suppressNextPush = true;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         activeFirmFilter = "All";
         currentFormAccountId = data.accounts[0] ? data.accounts[0].id : null;
