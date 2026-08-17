@@ -677,15 +677,20 @@
               <label for="syncToken">Personal access token</label>
               <input id="syncToken" type="password" placeholder="ghp_… (gist scope only)" autocomplete="off">
             </div>
-            <div class="field full">
-              <label for="syncGistId">Gist ID <span style="text-transform:none;font-weight:400;">(leave blank to create one)</span></label>
-              <input id="syncGistId" type="text" placeholder="e.g. 1a2b3c4d5e6f...">
-            </div>
           </div>
           <div class="form-actions" style="margin-top:10px;">
             <button id="syncConnectBtn" class="btn-primary">Connect &amp; sync</button>
           </div>
-          <p class="sync-hint">Create a token at github.com/settings/tokens with the <strong>gist</strong> scope only. It's stored in this browser's local storage, never sent anywhere except api.github.com. On another device, the same token alone will find and reconnect to your existing journal gist — Gist ID is only needed if you have more than one.</p>
+          <details style="margin-top:10px;">
+            <summary style="cursor:pointer;font-size:11.5px;color:var(--text-muted);">Advanced: use a specific Gist ID</summary>
+            <div class="form-grid form-grid-2" style="margin-top:8px;">
+              <div class="field full">
+                <label for="syncGistId">Gist ID <span style="text-transform:none;font-weight:400;">(only needed if you keep more than one journal)</span></label>
+                <input id="syncGistId" type="text" placeholder="e.g. 1a2b3c4d5e6f...">
+              </div>
+            </div>
+          </details>
+          <p class="sync-hint">Create a token at github.com/settings/tokens with the <strong>gist</strong> scope only. It's stored in this browser's local storage, never sent anywhere except api.github.com. Paste the same token on any device and it automatically finds and reconnects to your one journal gist — no Gist ID needed.</p>
         </div>
         <div id="syncConnected" style="display:none;">
           <div class="util-row">
@@ -1951,7 +1956,16 @@
         saveSyncConfig();
         renderAccountTabs();
         renderFormAccountSelect();
-        renderAll();
+        // Jump to the most recent day with a trade if today has nothing —
+        // otherwise a successful sync can look empty just because "today"
+        // has no trades logged on it yet. setSelectedDate() already
+        // triggers its own renderAll(), so skip the extra call below.
+        var jumped = false;
+        if(!tradesForDay(selectedDate).length && data.trades.length){
+          var latestDate = data.trades.reduce(function(max, t){ return (!max || t.date > max) ? t.date : max; }, null);
+          if(latestDate){ setSelectedDate(latestDate); jumped = true; }
+        }
+        if(!jumped) renderAll();
         setSyncStatus("Synced " + fmtSyncTime(syncConfig.lastSynced), "ok");
       })
       .catch(function(err){
