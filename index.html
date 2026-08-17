@@ -1791,21 +1791,25 @@
     reader.readAsText(file);
     importFile.value = "";
   });
+  function resetJournalData(){
+    data = {
+      trades: [], notes: {},
+      accounts: [
+        { id: "The5ers", name: "The5ers", firmType: "The5ers", stage: "Phase 1", starting: 0 },
+        { id: "FundingPips", name: "FundingPips", firmType: "FundingPips", stage: "Phase 1", starting: 0 }
+      ]
+    };
+    activeFirmFilter = "All";
+    currentFormAccountId = data.accounts[0].id;
+    saveData();
+    renderAccountTabs();
+    renderFormAccountSelect();
+    renderAll();
+  }
+
   document.getElementById("resetBtn").addEventListener("click", function(){
     if(confirm("This permanently erases all trades and notes in this browser. Export a backup first if you want to keep them. Continue?")){
-      data = {
-        trades: [], notes: {},
-        accounts: [
-          { id: "The5ers", name: "The5ers", firmType: "The5ers", stage: "Phase 1", starting: 0 },
-          { id: "FundingPips", name: "FundingPips", firmType: "FundingPips", stage: "Phase 1", starting: 0 }
-        ]
-      };
-      activeFirmFilter = "All";
-      currentFormAccountId = data.accounts[0].id;
-      saveData();
-      renderAccountTabs();
-      renderFormAccountSelect();
-      renderAll();
+      resetJournalData();
     }
   });
 
@@ -2061,9 +2065,10 @@
   document.getElementById("syncPushBtn").addEventListener("click", function(){ pushToGist(); });
   document.getElementById("syncPullBtn").addEventListener("click", function(){ pullFromGist(true).then(refreshSyncUI); });
   document.getElementById("syncDisconnectBtn").addEventListener("click", function(){
-    if(!confirm("Disconnect from GitHub sync? Your gist itself won't be deleted, and your local journal data stays on this device.")) return;
+    if(!confirm("Disconnect from GitHub sync and erase all journal data on this device? Your gist itself won't be deleted — export a backup first if you want to keep a copy locally.")) return;
     syncConfig = { token: "", gistId: "", lastSynced: null };
     saveSyncConfig();
+    resetJournalData();
     refreshSyncUI();
   });
 
