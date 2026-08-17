@@ -155,7 +155,7 @@
     margin-bottom:20px;
     box-shadow:0 1px 2px rgba(20,18,10,0.04);
   }
-  .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:6px 10px;}
   .card-head h2{font-size:17px;}
   .eyebrow{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--text-muted);margin-bottom:4px;}
 
@@ -253,13 +253,16 @@
   #syncConnected .util-row a.btn-ghost{flex:1;}
   #syncConnected .util-row button{flex:1;}
   .gist-picker-item{
-    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
     padding:10px 12px;border:1px solid var(--border);border-radius:8px;
     margin-bottom:8px;background:var(--surface-2);
   }
-  .gist-picker-item .meta{font-size:11.5px;color:var(--text-muted);line-height:1.5;}
+  .gist-picker-item .meta{font-size:11.5px;color:var(--text-muted);line-height:1.5;word-break:break-word;}
   .gist-picker-item .meta strong{color:var(--text);font-weight:600;}
   .gist-picker-item button{white-space:nowrap;}
+  @media (max-width:480px){
+    .gist-picker-item button{width:100%;}
+  }
 
   /* Stats */
   .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
