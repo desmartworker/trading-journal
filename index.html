@@ -244,6 +244,11 @@
   .sync-status.ok{background:var(--gain-bg);color:var(--gain);}
   .sync-status.pending{background:var(--accent-light);color:var(--amber);}
   .sync-status.error{background:var(--loss-bg);color:var(--loss);}
+  .sync-error-detail{
+    font-size:11.5px;line-height:1.5;color:var(--loss);
+    background:var(--loss-bg);border:1px solid var(--loss);border-radius:8px;
+    padding:8px 10px;margin:0 0 12px;word-break:break-word;
+  }
   .sync-hint{font-size:11.5px;color:var(--text-muted);line-height:1.5;margin:10px 0 0;}
   #syncConnected .util-row a.btn-ghost{flex:1;}
   #syncConnected .util-row button{flex:1;}
@@ -679,6 +684,7 @@
           <h2>GitHub sync</h2>
           <span class="sync-status" id="syncStatus">Not connected</span>
         </div>
+        <p class="sync-error-detail" id="syncErrorDetail" style="display:none;"></p>
         <div id="syncSetup">
           <div class="form-grid form-grid-2">
             <div class="field full">
@@ -1837,6 +1843,7 @@
   }
 
   var elSyncStatus = document.getElementById("syncStatus");
+  var elSyncErrorDetail = document.getElementById("syncErrorDetail");
   var elSyncSetup = document.getElementById("syncSetup");
   var elSyncConnected = document.getElementById("syncConnected");
   var elSyncToken = document.getElementById("syncToken");
@@ -1844,8 +1851,20 @@
   var elSyncGistLink = document.getElementById("syncGistLink");
 
   function setSyncStatus(text, cls){
-    elSyncStatus.textContent = text;
-    elSyncStatus.className = "sync-status" + (cls ? " " + cls : "");
+    if(cls === "error"){
+      // Full error messages get their own full-width block below the
+      // header instead of being squeezed into the small status pill,
+      // which wraps badly for anything longer than a couple of words.
+      elSyncStatus.textContent = "Error";
+      elSyncStatus.className = "sync-status error";
+      elSyncErrorDetail.textContent = text;
+      elSyncErrorDetail.style.display = "block";
+    } else {
+      elSyncStatus.textContent = text;
+      elSyncStatus.className = "sync-status" + (cls ? " " + cls : "");
+      elSyncErrorDetail.style.display = "none";
+      elSyncErrorDetail.textContent = "";
+    }
   }
   function fmtSyncTime(iso){
     if(!iso) return "";
