@@ -598,8 +598,11 @@
           <div class="mood-chip" data-mood="Disciplined">Disciplined</div>
         </div>
         <textarea id="reflectionText" placeholder="What went well today? What would you do differently? Any rules broken?"></textarea>
+        <div class="form-actions"><button id="saveReflection" class="btn-primary">Save reflection</button></div>
+      </div>
 
-        <div class="eyebrow" style="margin-top:16px;">Chart screenshots</div>
+      <div class="card">
+        <div class="card-head"><h2>Chart screenshots</h2></div>
         <div class="shot-dropzone" id="shotDropzone">
           Drop chart screenshots here, or click to upload
           <span class="hint">Saved automatically for this date · stored in this browser only</span>
@@ -607,8 +610,6 @@
         <input type="file" id="shotFileInput" accept="image/*" multiple style="display:none;">
         <div class="shot-grid" id="shotGrid"></div>
         <div class="shot-empty-note" id="shotEmptyNote" style="display:none;">No screenshots for this day yet.</div>
-
-        <div class="form-actions"><button id="saveReflection" class="btn-primary">Save reflection</button></div>
       </div>
 
     </div>
