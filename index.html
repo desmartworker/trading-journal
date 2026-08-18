@@ -1179,7 +1179,15 @@
   });
 
   document.getElementById("saveReflection").addEventListener("click", function(){
-    data.notes[selectedDate] = { text: elReflectionText.value, moods: selectedMoods.slice() };
+    // Preserve any existing screenshots for the day — this used to overwrite
+    // the whole notes entry with just {text, moods}, silently dropping the
+    // images array and deleting that day's uploaded screenshots.
+    var existing = data.notes[selectedDate];
+    data.notes[selectedDate] = {
+      text: elReflectionText.value,
+      moods: selectedMoods.slice(),
+      images: (existing && existing.images) ? existing.images : []
+    };
     saveData();
     var btn = document.getElementById("saveReflection");
     var original = btn.textContent;
