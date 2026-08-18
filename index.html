@@ -1239,13 +1239,19 @@
       return f.type && f.type.indexOf("image/") === 0;
     });
     if(!files.length) return;
+    // Capture the date synchronously, right when the file is dropped — not
+    // inside the async callback below. Image compression takes a moment,
+    // and if the user navigates to a different date before it finishes,
+    // reading the live `selectedDate` there would silently save the image
+    // to whichever date they'd moved to instead of the one they meant.
+    var targetDate = selectedDate;
     files.forEach(function(file){
       compressImage(file, function(dataUrl){
         if(!dataUrl) return;
-        var entry = getNoteEntry(selectedDate);
+        var entry = getNoteEntry(targetDate);
         entry = { text: entry.text || "", moods: entry.moods || [], images: (entry.images || []).slice() };
         entry.images.push({ id: uid(), dataUrl: dataUrl, name: file.name || "screenshot" });
-        data.notes[selectedDate] = entry;
+        data.notes[targetDate] = entry;
         try{
           saveData();
         }catch(err){
@@ -1253,7 +1259,10 @@
           alert("Couldn't save that screenshot — your browser's local storage is full. Try exporting a backup and removing some older screenshots.");
           return;
         }
-        renderScreenshots();
+        // Only refresh the visible screenshot grid if we're still looking
+        // at the date this image was saved to — otherwise we'd wrongly
+        // render another day's images into the currently-viewed day.
+        if(selectedDate === targetDate) renderScreenshots();
         renderCalendar();
       });
     });
