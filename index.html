@@ -153,6 +153,7 @@
   /* ---------- Layout ---------- */
   main{max-width:1180px;margin:0 auto;padding:28px 24px 80px;}
   .grid{display:grid;grid-template-columns:1.6fr 1fr;gap:22px;align-items:start;}
+  .grid > div{min-width:0;}
   @media (max-width:880px){ .grid{grid-template-columns:1fr;} }
 
   .card{
@@ -168,11 +169,11 @@
   .eyebrow{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--text-muted);margin-bottom:4px;}
 
   /* Date nav */
-  .date-nav{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+  .date-nav{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;min-width:0;}
   .date-nav .date-label{font-family:'Fraunces',serif;font-size:19px;font-weight:600;min-width:200px;}
-  .date-nav input[type="date"]{max-width:150px;min-width:0;}
+  .date-nav input[type="date"]{max-width:150px;min-width:0;width:150px;box-sizing:border-box;}
   @media (max-width:480px){
-    .date-nav input[type="date"]{max-width:none;flex:1 1 100%;}
+    .date-nav input[type="date"]{max-width:none;width:100%;flex:1 1 100%;}
   }
 
   /* Trade form */
@@ -384,16 +385,25 @@
 
   /* Account balance */
   .balance-row{
-    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
-    padding:11px 0;border-bottom:1px solid var(--border);
+    display:grid;
+    grid-template-columns:1fr auto;
+    grid-template-areas:
+      "firm remove"
+      "stage stage"
+      "start current";
+    row-gap:9px; column-gap:10px;
+    padding:14px 0;border-bottom:1px solid var(--border);
   }
-  .balance-row:last-child{border-bottom:none;}
-  .balance-firm{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;}
+  .balance-row:first-child{padding-top:2px;}
+  .balance-row:last-child{border-bottom:none;padding-bottom:2px;}
+  .balance-firm{grid-area:firm; display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;min-width:0;}
   .balance-firm .dot{width:7px;height:7px;border-radius:50%;background:var(--gain);flex-shrink:0;}
-  .balance-start{display:flex;align-items:center;gap:6px;}
-  .balance-start label{font-size:9.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;}
-  .balance-start input{width:92px;padding:5px 7px;font-size:12.5px;}
-  .balance-current{text-align:right;}
+  .balance-remove{grid-area:remove; justify-self:end; align-self:start;}
+  .stage-select{grid-area:stage; width:100%;}
+  .balance-start{grid-area:start; display:flex;align-items:center;gap:6px;}
+  .balance-start label{font-size:9.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;}
+  .balance-start input{flex:1;min-width:0;padding:5px 7px;font-size:12.5px;}
+  .balance-current{grid-area:current; text-align:right;}
   .balance-current .label{font-size:9.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;}
   .balance-current .value{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:15px;}
   .balance-current .value.up{color:var(--gain);}
@@ -720,7 +730,7 @@
           <div class="stat"><div class="label">Avg loss</div><div class="value down" id="statAvgLoss">$0.00</div></div>
           <div class="stat"><div class="label">Profit factor</div><div class="value" id="statPF">—</div></div>
           <div class="stat"><div class="label">Streak</div><div class="value" id="statStreak">—</div></div>
-          <div class="stat"><div class="label">Open trades</div><div class="value" id="statOpen">0</div></div>
+          <div class="stat" style="grid-column:1/-1;"><div class="label">Open trades</div><div class="value" id="statOpen">0</div></div>
         </div>
       </div>
 
