@@ -33,6 +33,10 @@
     --amber-text:#ffffff;
     --accent-light:#e8f0fe;
     --radius:10px;
+    --caution:#c98a12;
+    --caution-bg:rgba(201,138,18,0.10);
+    --warning:#d9720c;
+    --warning-bg:rgba(217,114,12,0.10);
   }
   html[data-theme="dark"]{
     --bg:#0d1117;
@@ -49,6 +53,10 @@
     --amber:#58a6ff;
     --amber-text:#0d1117;
     --accent-light:#0d2540;
+    --caution:#e3b341;
+    --caution-bg:rgba(227,179,65,0.14);
+    --warning:#f0883e;
+    --warning-bg:rgba(240,136,62,0.14);
   }
   body{transition:background-color .2s ease, color .2s ease;}
   *{box-sizing:border-box;}
@@ -437,6 +445,34 @@
     .date-nav .date-label{min-width:0;font-size:17px;}
     .card{padding:16px;}
   }
+
+  /* Risk observation status */
+  .risk-banner{
+    border-radius:8px; padding:14px 16px; margin-bottom:14px;
+    border:1px solid var(--border); position:relative; overflow:hidden;
+    background:var(--risk-bg, var(--gain-bg));
+  }
+  .risk-banner::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:4px;
+    background:var(--risk-color, var(--gain));
+  }
+  .risk-status-label{
+    font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--text-muted);
+  }
+  .risk-status-name{
+    font-family:'Fraunces',serif; font-size:22px; font-weight:700; margin:2px 0 6px;
+    color:var(--risk-color, var(--gain));
+  }
+  .risk-status-action{font-size:13px; line-height:1.5; color:var(--text);}
+  .risk-status-action .streak-note{display:block; margin-top:4px; color:var(--text-muted); font-size:12px;}
+  .risk-stats-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:6px;}
+  @media (max-width:640px){ .risk-stats-grid{grid-template-columns:1fr;} }
+  .risk-settings{margin-top:10px;}
+  .risk-settings summary{cursor:pointer; font-size:11.5px; color:var(--text-muted); user-select:none;}
+  .risk-threshold-list{margin-top:10px; display:flex; flex-direction:column; gap:8px;}
+  .risk-threshold-row{display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--text);}
+  .risk-threshold-row .tag-pill{flex-shrink:0; min-width:64px; text-align:center;}
+  .risk-settings-note{font-size:11px; color:var(--text-muted); line-height:1.5; margin-top:10px;}
 </style>
 </head>
 <body>
@@ -445,7 +481,6 @@
   <div class="tape-top">
     <div class="brand">
       <h1>Funded Trading Journal</h1>
-      <span class="sub">XAUUSD &amp; forex</span>
     </div>
     <div class="header-right">
       <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"></button>
@@ -489,6 +524,35 @@
     </div>
     <div id="equityChartWrap"><svg id="equityChart" viewBox="0 0 1000 260" preserveAspectRatio="none"></svg></div>
     <div class="empty-state" id="equityEmpty" style="display:none;">No closed trades yet — your equity curve will appear here once you log some results.</div>
+  </div>
+
+  <div class="card" id="riskCard">
+    <div class="card-head">
+      <h2>Risk observation status</h2>
+      <span class="eyebrow" id="riskAccountLabel">—</span>
+    </div>
+    <div class="risk-banner" id="riskBanner">
+      <div class="risk-status-label">Current status</div>
+      <div class="risk-status-name" id="riskStatusName">NORMAL</div>
+      <div class="risk-status-action" id="riskStatusAction">—</div>
+    </div>
+    <div class="risk-stats-grid">
+      <div class="stat"><div class="label">Drawdown from peak</div><div class="value" id="riskDD">0.00%</div></div>
+      <div class="stat"><div class="label">Streak</div><div class="value" id="riskStreak">—</div></div>
+      <div class="stat"><div class="label">Risk / trade</div><div class="value" id="riskAmount">—</div></div>
+    </div>
+    <details class="risk-settings">
+      <summary>How thresholds are set (fixed)</summary>
+      <div class="risk-threshold-list">
+        <div class="risk-threshold-row"><span class="tag-pill status-analysis">Normal</span><span>Base risk locked at <b>1.00%</b> per trade</span></div>
+        <div class="risk-threshold-row"><span class="tag-pill" style="background:var(--caution-bg);color:var(--caution);">Caution</span><span>Drawdown ≥ <b>3%</b> from peak <span id="riskDollarYellow" class="mono"></span></span></div>
+        <div class="risk-threshold-row"><span class="tag-pill" style="background:var(--warning-bg);color:var(--warning);">Warning</span><span>Drawdown ≥ <b>5%</b> from peak <span id="riskDollarOrange" class="mono"></span></span></div>
+        <div class="risk-threshold-row"><span class="tag-pill" style="background:var(--loss-bg);color:var(--loss);">Stop</span><span>Drawdown ≥ <b>7%</b> from peak <span id="riskDollarRed" class="mono"></span></span></div>
+      </div>
+      <div class="risk-settings-note">
+        Risk halves at Caution, quarters at Warning, and stops at Stop — a losing streak of 3+ can trigger the same cuts even before drawdown catches up. A winning streak of 3+ can raise risk slightly, but only while still Normal. Full size resumes at a new equity high.
+      </div>
+    </details>
   </div>
 
   <div class="grid">
@@ -901,6 +965,12 @@
     d.accounts.forEach(function(acc){
       if(!acc.stage || STAGE_TYPES.indexOf(acc.stage) === -1) acc.stage = "Phase 1";
     });
+    if(!d.riskSettings) d.riskSettings = {};
+    var rs = d.riskSettings;
+    if(typeof rs.basePct !== "number" || isNaN(rs.basePct)) rs.basePct = 1.0;
+    if(typeof rs.thYellow !== "number" || isNaN(rs.thYellow)) rs.thYellow = 3;
+    if(typeof rs.thOrange !== "number" || isNaN(rs.thOrange)) rs.thOrange = 5;
+    if(typeof rs.thRed !== "number" || isNaN(rs.thRed)) rs.thRed = 7;
     return d;
   }
   function saveData(){
@@ -1553,6 +1623,94 @@
       '<text class="eq-axis-label" x="'+(W-padR)+'" y="'+(H-8)+'" text-anchor="end">'+lastLabel+'</text>';
   }
 
+  // ---------- Risk observation status ----------
+  var RISK_TIER_ORDER = ['NORMAL','CAUTION','WARNING','STOP'];
+  var RISK_BASE_PCT = 1.0;   // locked
+  var RISK_TH_YELLOW = 3;    // locked — caution
+  var RISK_TH_ORANGE = 5;    // locked — warning
+  var RISK_TH_RED = 7;       // locked — stop
+
+  function riskDdTierAndFactor(ddPct){
+    if(ddPct >= RISK_TH_RED)    return {tier:'STOP',    factor:0};
+    if(ddPct >= RISK_TH_ORANGE) return {tier:'WARNING', factor:0.25};
+    if(ddPct >= RISK_TH_YELLOW) return {tier:'CAUTION', factor:0.5};
+    return {tier:'NORMAL', factor:1};
+  }
+  function riskStreakTierAndFactor(streak){
+    if(streak <= -7) return {tier:'STOP',    factor:0,    label: (-streak) + " losses in a row"};
+    if(streak <= -5) return {tier:'WARNING', factor:0.25, label: (-streak) + " losses in a row"};
+    if(streak <= -3) return {tier:'CAUTION', factor:0.5,  label: (-streak) + " losses in a row"};
+    if(streak >= 5)  return {tier:'NORMAL',  factor:1.3,  label: streak + " wins in a row"};
+    if(streak >= 3)  return {tier:'NORMAL',  factor:1.15, label: streak + " wins in a row"};
+    return {tier:'NORMAL', factor:1, label:"no active streak"};
+  }
+  function computeRiskDrawdownAndStreak(){
+    var trades = filteredTrades().filter(isClosed).slice().sort(function(a,b){
+      return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0);
+    });
+    var starting = computeStartingBalance();
+    var equity = starting, peak = starting;
+    var streak = 0;
+    trades.forEach(function(t){
+      equity += t.pnl;
+      if(equity > peak) peak = equity;
+      if(t.pnl > 0) streak = (streak >= 0) ? streak + 1 : 1;
+      else if(t.pnl < 0) streak = (streak <= 0) ? streak - 1 : -1;
+    });
+    var ddPct = (peak !== 0) ? ((peak - equity) / Math.abs(peak)) * 100 : 0;
+    return { ddPct: ddPct, streak: streak, equity: equity, peak: peak, starting: starting };
+  }
+  function combinedRiskStatus(ddPct, streak){
+    var ddResult = riskDdTierAndFactor(ddPct);
+    var streakResult = riskStreakTierAndFactor(streak);
+    var tier = RISK_TIER_ORDER.indexOf(streakResult.tier) > RISK_TIER_ORDER.indexOf(ddResult.tier)
+      ? streakResult.tier : ddResult.tier;
+    var riskMult = ddResult.factor * streakResult.factor;
+    if(ddResult.factor === 0 || streakResult.factor === 0) riskMult = 0;
+    riskMult = Math.min(riskMult, 1.3);
+    return { tier: tier, riskMult: riskMult, streakLabel: streakResult.label };
+  }
+  var RISK_STATUS_META = {
+    NORMAL:  {colorVar:'--gain',    bgVar:'--gain-bg',    text:function(amt){ return "Trade at <b>"+amt+"</b>. Drawdown and streak are both within normal range."; }},
+    CAUTION: {colorVar:'--caution', bgVar:'--caution-bg', text:function(amt){ return "Cut size to <b>"+amt+"</b>. Tighten setup quality — only take your clearest signals until equity makes a new peak."; }},
+    WARNING: {colorVar:'--warning', bgVar:'--warning-bg', text:function(amt){ return "Cut size to <b>"+amt+"</b> and take A+ setups only. Review recent trades for a pattern before continuing."; }},
+    STOP:    {colorVar:'--loss',    bgVar:'--loss-bg',    text:function(){ return "Stop taking new trades. This is outside normal variance for your system. Do a full review before resuming."; }},
+  };
+  function renderRiskStatus(){
+    var r = computeRiskDrawdownAndStreak();
+    var status = combinedRiskStatus(r.ddPct, r.streak);
+    var meta = RISK_STATUS_META[status.tier];
+    var riskAmountPct = (RISK_BASE_PCT * status.riskMult);
+    var riskAmountDollar = r.equity * (riskAmountPct / 100);
+    var amtStr = riskAmountPct.toFixed(2) + "% (" + money(riskAmountDollar) + ")";
+
+    document.getElementById("riskAccountLabel").textContent =
+      activeFirmFilter === "All" ? "All accounts" : (accountById(activeFirmFilter) ? accountById(activeFirmFilter).name : "—");
+
+    var banner = document.getElementById("riskBanner");
+    banner.style.setProperty("--risk-color", "var(" + meta.colorVar + ")");
+    banner.style.setProperty("--risk-bg", "var(" + meta.bgVar + ")");
+    document.getElementById("riskStatusName").textContent = status.tier;
+    document.getElementById("riskStatusAction").innerHTML = meta.text(amtStr) +
+      '<span class="streak-note">Streak: ' + escapeHtml(status.streakLabel) + '</span>';
+
+    var ddEl = document.getElementById("riskDD");
+    ddEl.textContent = "-" + Math.max(0, r.ddPct).toFixed(2) + "%";
+    ddEl.className = "value " + (r.ddPct > 0.005 ? "down" : "");
+
+    var streakEl = document.getElementById("riskStreak");
+    streakEl.textContent = r.streak === 0 ? "—" : (r.streak > 0 ? ("+" + r.streak) : r.streak);
+    streakEl.className = "value " + (r.streak > 0 ? "up" : (r.streak < 0 ? "down" : ""));
+
+    document.getElementById("riskAmount").textContent = amtStr;
+
+    // Live dollar amounts for each fixed threshold, based on current peak equity
+    var peak = r.peak;
+    document.getElementById("riskDollarYellow").textContent = "(" + money(peak * RISK_TH_YELLOW / 100) + ")";
+    document.getElementById("riskDollarOrange").textContent = "(" + money(peak * RISK_TH_ORANGE / 100) + ")";
+    document.getElementById("riskDollarRed").textContent = "(" + money(peak * RISK_TH_RED / 100) + ")";
+  }
+
   // ---------- Ticker tape ----------
   function renderTape(){
     var track = document.getElementById("tapeTrack");
@@ -1802,14 +1960,15 @@
       try{
         var parsed = JSON.parse(e.target.result);
         if(!parsed || !Array.isArray(parsed.trades)) throw new Error("bad format");
-        data = {
+        data = normalizeData({
           trades: parsed.trades,
           notes: parsed.notes || {},
           accounts: parsed.accounts || [
             { id: "The5ers", name: "The5ers", firmType: "The5ers", stage: "Phase 1", starting: 0 },
             { id: "FundingPips", name: "FundingPips", firmType: "FundingPips", stage: "Phase 1", starting: 0 }
-          ]
-        };
+          ],
+          riskSettings: parsed.riskSettings
+        });
         activeFirmFilter = "All";
         currentFormAccountId = data.accounts[0] ? data.accounts[0].id : null;
         saveData();
@@ -1825,13 +1984,13 @@
     importFile.value = "";
   });
   function resetJournalData(){
-    data = {
+    data = normalizeData({
       trades: [], notes: {},
       accounts: [
         { id: "The5ers", name: "The5ers", firmType: "The5ers", stage: "Phase 1", starting: 0 },
         { id: "FundingPips", name: "FundingPips", firmType: "FundingPips", stage: "Phase 1", starting: 0 }
       ]
-    };
+    });
     activeFirmFilter = "All";
     currentFormAccountId = data.accounts[0].id;
     saveData();
@@ -2197,6 +2356,7 @@
     renderReflection();
     renderStats();
     renderEquityChart();
+    renderRiskStatus();
     renderTape();
     renderCalendar();
     renderBalances();
