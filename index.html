@@ -524,6 +524,22 @@
   }
   .checklist-item.checked{color:var(--text);}
   .checklist-hint{font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.5;}
+
+  /* Account balance — separate card per account */
+  .account-balance-card{margin-bottom:16px;}
+  .account-balance-card .card-head h2{
+    font-size:15px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0;
+  }
+  .account-balance-card .card-head .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .account-balance-card .card-head .acc-name{overflow-wrap:anywhere;}
+  .balance-current-big{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-top:14px; padding-top:12px; border-top:1px dashed var(--border);
+  }
+  .balance-current-big .label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);}
+  .balance-current-big .value{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:22px;}
+  .balance-current-big .value.up{color:var(--gain);}
+  .balance-current-big .value.down{color:var(--loss);}
 </style>
 </head>
 <body>
@@ -740,10 +756,11 @@
     <!-- SIDE COLUMN -->
     <div class="col-side">
 
+      <div id="balanceCardsWrap"><!-- filled by JS: one .card per account --></div>
+
       <div class="card">
-        <div class="card-head"><h2>Account balance</h2></div>
-        <div id="balanceList"><!-- filled by JS --></div>
-        <button id="addAccountBtn" class="btn-ghost" style="margin-top:12px;width:100%;">+ Add account</button>
+        <div class="card-head"><h2>Add account</h2></div>
+        <button id="addAccountBtn" class="btn-ghost" style="width:100%;">+ Add account</button>
         <div id="addAccountForm" style="display:none;margin-top:14px;">
           <div class="form-grid form-grid-2">
             <div class="field full">
@@ -2014,43 +2031,48 @@
       .reduce(function(s,t){ return s + t.pnl; }, 0);
   }
   function renderBalances(){
-    var wrap = document.getElementById("balanceList");
+    var wrap = document.getElementById("balanceCardsWrap");
     wrap.innerHTML = "";
     if(!data.accounts.length){
-      wrap.innerHTML = '<div class="empty-state" style="padding:8px 0;">No accounts yet. Add one below.</div>';
+      wrap.innerHTML = '<div class="card"><div class="empty-state" style="padding:8px 0;">No accounts yet. Add one below.</div></div>';
       return;
     }
     data.accounts.forEach(function(acc){
       var starting = (typeof acc.starting === "number" && !isNaN(acc.starting)) ? acc.starting : 0;
       var current = starting + accountClosedPnl(acc.id);
-      var row = document.createElement("div");
-      row.className = "balance-row";
+      var card = document.createElement("div");
+      card.className = "card account-balance-card";
       var diffClass = current > starting ? "up" : (current < starting ? "down" : "");
       var stageOptionsHtml = STAGE_TYPES.map(function(st){
         return '<option value="'+st+'"'+(acc.stage === st ? " selected" : "")+'>'+st+'</option>';
       }).join("");
-      row.innerHTML =
-        '<div class="balance-firm"><span class="dot" style="background:'+firmDotColor(acc.firmType)+';"></span>'+escapeHtml(acc.name)+
-          ' '+stageBadgeHtml(acc.stage)+
+      card.innerHTML =
+        '<div class="card-head">'+
+          '<h2><span class="dot" style="background:'+firmDotColor(acc.firmType)+';"></span><span class="acc-name">'+escapeHtml(acc.name)+'</span> '+stageBadgeHtml(acc.stage)+'</h2>'+
+          '<button class="btn-ghost btn-danger balance-remove" title="Remove account">✕</button>'+
         '</div>'+
-        '<select class="stage-select">'+stageOptionsHtml+'</select>'+
-        '<div class="balance-start"><label>Start</label><input type="number" step="any" value="'+starting+'"></div>'+
-        '<div class="balance-current"><div class="label">Current</div><div class="value '+diffClass+'">'+money(current)+'</div></div>'+
-        '<button class="btn-ghost btn-danger balance-remove" title="Remove account">✕</button>';
-      var input = row.querySelector("input");
+        '<div class="form-grid form-grid-2">'+
+          '<div class="field"><label>Stage</label><select class="stage-select">'+stageOptionsHtml+'</select></div>'+
+          '<div class="field"><label>Starting balance</label><input type="number" step="any" value="'+starting+'"></div>'+
+        '</div>'+
+        '<div class="balance-current-big">'+
+          '<span class="label">Current</span>'+
+          '<span class="value '+diffClass+'">'+money(current)+'</span>'+
+        '</div>';
+      var input = card.querySelector("input");
       input.addEventListener("change", function(){
         var v = parseFloat(input.value);
         acc.starting = isNaN(v) ? 0 : v;
         saveData();
         renderBalances();
       });
-      row.querySelector(".stage-select").addEventListener("change", function(e){
+      card.querySelector(".stage-select").addEventListener("change", function(e){
         acc.stage = e.target.value;
         saveData();
         renderBalances();
         renderFormAccountSelect();
       });
-      row.querySelector(".balance-remove").addEventListener("click", function(){
+      card.querySelector(".balance-remove").addEventListener("click", function(){
         if(data.accounts.length <= 1){ alert("You need at least one account."); return; }
         if(!confirm('Remove "'+acc.name+'"? Trades already logged under it stay, but will show as unassigned.')) return;
         data.accounts = data.accounts.filter(function(a){ return a.id !== acc.id; });
@@ -2061,7 +2083,7 @@
         renderFormAccountSelect();
         renderAll();
       });
-      wrap.appendChild(row);
+      wrap.appendChild(card);
     });
   }
 
