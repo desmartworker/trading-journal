@@ -540,6 +540,11 @@
   .balance-current-big .value{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:22px;}
   .balance-current-big .value.up{color:var(--gain);}
   .balance-current-big .value.down{color:var(--loss);}
+  .balance-trade-count{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-top:10px; font-size:12.5px; color:var(--text-muted);
+  }
+  .balance-trade-count .value{font-family:'IBM Plex Mono',monospace; font-weight:600; color:var(--text);}
 </style>
 </head>
 <body>
@@ -2072,6 +2077,11 @@
       var stageOptionsHtml = STAGE_TYPES.map(function(st){
         return '<option value="'+st+'"'+(acc.stage === st ? " selected" : "")+'>'+st+'</option>';
       }).join("");
+      var accAllTrades = data.trades.filter(function(t){ return t.accountId === acc.id; });
+      var accClosedCount = accAllTrades.filter(isClosed).length;
+      var accOpenCount = accAllTrades.length - accClosedCount;
+      var tradeCountLabel = accAllTrades.length + (accAllTrades.length === 1 ? " trade" : " trades") +
+        (accOpenCount ? " (" + accOpenCount + " open)" : "");
       card.innerHTML =
         '<div class="card-head">'+
           '<h2><span class="dot" style="background:'+firmDotColor(acc.firmType)+';"></span><span class="acc-name">'+escapeHtml(acc.name)+'</span> '+stageBadgeHtml(acc.stage)+'</h2>'+
@@ -2080,6 +2090,10 @@
         '<div class="form-grid form-grid-2">'+
           '<div class="field"><label>Stage</label><select class="stage-select">'+stageOptionsHtml+'</select></div>'+
           '<div class="field"><label>Starting balance</label><input type="number" step="any" value="'+starting+'"></div>'+
+        '</div>'+
+        '<div class="balance-trade-count">'+
+          '<span>Total trades</span>'+
+          '<span class="value">'+tradeCountLabel+'</span>'+
         '</div>'+
         '<div class="balance-current-big">'+
           '<span class="label">Current</span>'+
