@@ -681,8 +681,9 @@
               <input id="f-entry" type="number" step="any" placeholder="Fill once you're in">
             </div>
             <div class="field">
-              <label for="f-size">Size / lots</label>
-              <input id="f-size" type="number" step="any" placeholder="0.10">
+              <label for="f-size">Quantity (lots)</label>
+              <input id="f-size" type="number" step="any" placeholder="0.01">
+              <span class="hint" style="font-size:10.5px;color:var(--text-muted);display:block;margin-top:4px;">Enter your real lot size, e.g. 0.01 -- the $ contract size per instrument is applied automatically.</span>
             </div>
           </div>
         </div>
@@ -1194,12 +1195,37 @@
   }
 
   // ---------- P&L calc ----------
-  function calcPnl(entry, exit, size, side){
-    entry = parseFloat(entry); exit = parseFloat(exit); size = parseFloat(size);
-    if(isNaN(entry) || isNaN(exit) || isNaN(size)) return null;
+  // "Size" in the form is the real lot quantity (0.01, 0.25, 1.00...), same
+  // number your broker shows. Each instrument has a different contract size
+  // (units per 1.00 lot), so the $ value of a 1-point move isn't the same
+  // across symbols -- gold, silver and forex pairs all scale differently.
+  // CONTRACT_SIZE converts quantity -> the real position size so the P&L
+  // formula matches what the broker actually pays/charges.
+  var CONTRACT_SIZE = {
+    XAUUSD: 100,     // gold: 100 oz per 1.00 lot
+    XAGUSD: 5000,    // silver: 5,000 oz per 1.00 lot
+    EURUSD: 100000,  // forex majors: 100,000 units per 1.00 lot
+    GBPUSD: 100000,
+    AUDUSD: 100000,
+    NZDUSD: 100000,
+    USDCAD: 100000,
+    USDCHF: 100000,
+    USDJPY: 100000,
+    EURJPY: 100000,
+    GBPJPY: 100000,
+    EURGBP: 100000
+  };
+  var DEFAULT_CONTRACT_SIZE = 100; // used for any symbol not listed above
+  function contractSize(symbol){
+    var key = (symbol || "").trim().toUpperCase();
+    return CONTRACT_SIZE.hasOwnProperty(key) ? CONTRACT_SIZE[key] : DEFAULT_CONTRACT_SIZE;
+  }
+  function calcPnl(entry, exit, qty, side, symbol){
+    entry = parseFloat(entry); exit = parseFloat(exit); qty = parseFloat(qty);
+    if(isNaN(entry) || isNaN(exit) || isNaN(qty)) return null;
     var diff = exit - entry;
     if(side === "short") diff = -diff;
-    return diff * size;
+    return diff * qty * contractSize(symbol);
   }
   function isClosed(t){
     return t.pnl !== null && t.pnl !== undefined && !isNaN(t.pnl);
@@ -1240,7 +1266,7 @@
       elPnlPreview.style.color = "var(--text-muted)";
       return;
     }
-    var pnl = calcPnl(elEntry.value, elExit.value, elSize.value, currentSide);
+    var pnl = calcPnl(elEntry.value, elExit.value, elSize.value, currentSide, elSymbol.value);
     if(pnl === null){
       elPnlPreview.textContent = "—";
       elPnlPreview.style.color = "var(--text-muted)";
@@ -1278,7 +1304,7 @@
     if(sizeVal !== null && isNaN(sizeVal)) sizeVal = null;
 
     var pnl = (entryVal !== null && exitVal !== null && sizeVal !== null)
-      ? calcPnl(entryVal, exitVal, sizeVal, currentSide)
+      ? calcPnl(entryVal, exitVal, sizeVal, currentSide, symbol)
       : null;
 
     var trade = {
