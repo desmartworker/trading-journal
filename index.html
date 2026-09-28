@@ -184,6 +184,8 @@
   .form-grid .field{display:flex;flex-direction:column;min-width:0;}
   .form-grid input, .form-grid select{width:100%;min-width:0;}
   @media (max-width:640px){ .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .form-grid.form-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+  @media (max-width:640px){ .form-grid.form-grid-3{grid-template-columns:repeat(2,minmax(0,1fr));} }
   .form-section{padding-top:14px;}
   .form-section:first-of-type{padding-top:0;}
   .form-section + .form-section{border-top:1px dashed var(--border);margin-top:14px;}
@@ -680,7 +682,7 @@
 
         <div class="form-section">
           <div class="eyebrow">2 · Entry</div>
-          <div class="form-grid form-grid-2">
+          <div class="form-grid form-grid-3">
             <div class="field">
               <label for="f-entry">Entry price</label>
               <input id="f-entry" type="number" step="any" placeholder="Fill once you're in">
@@ -689,6 +691,11 @@
               <label for="f-size">Quantity (lots)</label>
               <input id="f-size" type="number" step="any" placeholder="0.01">
               <span class="hint" style="font-size:10.5px;color:var(--text-muted);display:block;margin-top:4px;">Enter your real lot size, e.g. 0.01 -- the $ contract size per instrument is applied automatically.</span>
+            </div>
+            <div class="field">
+              <label for="f-fee">Fee ($)</label>
+              <input id="f-fee" type="number" step="any" min="0" placeholder="0.00">
+              <span class="hint" style="font-size:10.5px;color:var(--text-muted);display:block;margin-top:4px;">Commission + swap. Deducted from P&amp;L.</span>
             </div>
           </div>
         </div>
@@ -722,7 +729,7 @@
           <table>
             <thead>
               <tr>
-                <th>Sym</th><th>Side</th><th>Firm</th><th>Entry</th><th>Exit</th><th>Size</th><th>P&amp;L / status</th><th></th>
+                <th>Sym</th><th>Side</th><th>Firm</th><th>Entry</th><th>Exit</th><th>Size</th><th>Fee</th><th>P&amp;L / status</th><th></th>
               </tr>
             </thead>
             <tbody id="tradeRows"></tbody>
@@ -1225,12 +1232,16 @@
     var key = (symbol || "").trim().toUpperCase();
     return CONTRACT_SIZE.hasOwnProperty(key) ? CONTRACT_SIZE[key] : DEFAULT_CONTRACT_SIZE;
   }
-  function calcPnl(entry, exit, qty, side, symbol){
+  // Fee (commission + swap, in $) is always treated as a cost and deducted
+  // from the gross P&L, so the stored pnl is net of fees.
+  function calcPnl(entry, exit, qty, side, symbol, fee){
     entry = parseFloat(entry); exit = parseFloat(exit); qty = parseFloat(qty);
     if(isNaN(entry) || isNaN(exit) || isNaN(qty)) return null;
     var diff = exit - entry;
     if(side === "short") diff = -diff;
-    return diff * qty * contractSize(symbol);
+    var f = parseFloat(fee);
+    if(isNaN(f)) f = 0;
+    return diff * qty * contractSize(symbol) - Math.abs(f);
   }
   function isClosed(t){
     return t.pnl !== null && t.pnl !== undefined && !isNaN(t.pnl);
@@ -1247,6 +1258,7 @@
   var elEntry = document.getElementById("f-entry");
   var elExit = document.getElementById("f-exit");
   var elSize = document.getElementById("f-size");
+  var elFee = document.getElementById("f-fee");
   var elAnalysis = document.getElementById("f-analysis");
   var elResultNotes = document.getElementById("f-result-notes");
   var elPnlPreview = document.getElementById("pnlPreview");
@@ -1271,7 +1283,7 @@
       elPnlPreview.style.color = "var(--text-muted)";
       return;
     }
-    var pnl = calcPnl(elEntry.value, elExit.value, elSize.value, currentSide, elSymbol.value);
+    var pnl = calcPnl(elEntry.value, elExit.value, elSize.value, currentSide, elSymbol.value, elFee.value);
     if(pnl === null){
       elPnlPreview.textContent = "—";
       elPnlPreview.style.color = "var(--text-muted)";
@@ -1280,10 +1292,10 @@
     elPnlPreview.textContent = money(pnl);
     elPnlPreview.style.color = pnl > 0 ? "var(--gain)" : (pnl < 0 ? "var(--loss)" : "var(--text-muted)");
   }
-  [elEntry, elExit, elSize].forEach(function(el){ el.addEventListener("input", updatePreview); });
+  [elEntry, elExit, elSize, elFee].forEach(function(el){ el.addEventListener("input", updatePreview); });
 
   function resetForm(){
-    elSymbol.value = ""; elEntry.value = ""; elExit.value = ""; elSize.value = "";
+    elSymbol.value = ""; elEntry.value = ""; elExit.value = ""; elSize.value = ""; elFee.value = "";
     elAnalysis.value = ""; elResultNotes.value = "";
     setSide("long");
     setFormAccount(activeFirmFilter !== "All" ? activeFirmFilter : (data.accounts[0] ? data.accounts[0].id : null));
@@ -1304,12 +1316,14 @@
     var entryVal = elEntry.value === "" ? null : parseFloat(elEntry.value);
     var exitVal = elExit.value === "" ? null : parseFloat(elExit.value);
     var sizeVal = elSize.value === "" ? null : parseFloat(elSize.value);
+    var feeVal = elFee.value === "" ? null : Math.abs(parseFloat(elFee.value));
     if(entryVal !== null && isNaN(entryVal)) entryVal = null;
     if(exitVal !== null && isNaN(exitVal)) exitVal = null;
     if(sizeVal !== null && isNaN(sizeVal)) sizeVal = null;
+    if(feeVal !== null && isNaN(feeVal)) feeVal = null;
 
     var pnl = (entryVal !== null && exitVal !== null && sizeVal !== null)
-      ? calcPnl(entryVal, exitVal, sizeVal, currentSide, symbol)
+      ? calcPnl(entryVal, exitVal, sizeVal, currentSide, symbol, feeVal)
       : null;
 
     var trade = {
@@ -1323,6 +1337,7 @@
       entry: entryVal,
       exit: exitVal,
       size: sizeVal,
+      fee: feeVal,
       notes: elResultNotes.value.trim(),
       pnl: pnl
     };
@@ -1347,6 +1362,7 @@
     elEntry.value = (t.entry === null || t.entry === undefined) ? "" : t.entry;
     elExit.value = (t.exit === null || t.exit === undefined) ? "" : t.exit;
     elSize.value = (t.size === null || t.size === undefined) ? "" : t.size;
+    elFee.value = (t.fee === null || t.fee === undefined) ? "" : t.fee;
     elAnalysis.value = t.analysis || "";
     elResultNotes.value = t.notes || "";
     setSide(t.side);
@@ -1444,6 +1460,7 @@
       var entryDisplay = (t.entry === null || t.entry === undefined) ? "—" : t.entry;
       var exitDisplay = (t.exit === null || t.exit === undefined) ? "—" : t.exit;
       var sizeDisplay = (t.size === null || t.size === undefined) ? "—" : t.size;
+      var feeDisplay = (t.fee === null || t.fee === undefined) ? "—" : money(t.fee);
       tr.innerHTML =
         '<td><strong>'+escapeHtml(t.symbol)+'</strong></td>'+
         '<td>'+(t.side === "long" ? "Long" : "Short")+'</td>'+
@@ -1451,6 +1468,7 @@
         '<td class="mono">'+entryDisplay+'</td>'+
         '<td class="mono">'+exitDisplay+'</td>'+
         '<td class="mono">'+sizeDisplay+'</td>'+
+        '<td class="mono">'+feeDisplay+'</td>'+
         '<td>'+pnlCellHtml+'</td>'+
         '<td><div class="row-actions">'+
           '<button data-act="edit" data-id="'+t.id+'">Edit</button>'+
