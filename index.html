@@ -491,6 +491,10 @@
     border:1px solid var(--border); border-radius:8px; background:var(--surface-2);
     padding:12px 14px; margin-bottom:12px;
   }
+  .checklist-model{margin-bottom:12px;}
+  .checklist-model .toggle-group{background:var(--surface);}
+  .checklist-model .toggle-group button{font-size:12px;padding:7px 10px;background:var(--surface);white-space:normal;}
+  .checklist-model .toggle-group button.active{background:var(--amber);color:var(--amber-text);}
   .checklist-scoreboard{
     display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;
   }
@@ -508,21 +512,37 @@
   .checklist-signal.pass{background:var(--gain-bg); color:var(--gain);}
   .checklist-group{margin-bottom:8px;}
   .checklist-group:last-child{margin-bottom:0;}
+  .checklist-group + .checklist-group{border-top:1px dashed var(--border); padding-top:2px;}
   .checklist-group-label{
+    display:flex; justify-content:space-between; align-items:baseline; gap:8px;
     font-size:9.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--text-muted);
     margin:8px 0 4px;
   }
+  .checklist-group-label .count{
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:0; text-transform:none;
+  }
+  .checklist-group-label .count.met{color:var(--gain);}
   .checklist-group:first-child .checklist-group-label{margin-top:0;}
   .checklist-item{
     display:flex; align-items:flex-start; gap:8px; padding:4px 2px; cursor:pointer;
     border-radius:6px; font-size:12.5px; line-height:1.4;
   }
+  /* The form's generic label style (small caps, block) must not reach checklist rows. */
+  .form-grid label.checklist-item{
+    display:flex; text-transform:none; letter-spacing:normal; font-size:12.5px;
+    color:var(--text-muted); margin-bottom:0;
+  }
+  .form-grid label.checklist-item.checked{color:var(--text);}
   .checklist-item:hover{background:var(--surface);}
   .checklist-item input[type="checkbox"]{
     margin-top:2px; width:15px; height:15px; flex-shrink:0; accent-color:var(--amber); cursor:pointer;
   }
   .checklist-item .code{
     font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-muted);
+  }
+  .checklist-item .opt{
+    display:inline-block; font-size:10px; color:var(--text-muted); border:1px solid var(--border);
+    border-radius:20px; padding:0 6px; margin-left:6px; white-space:nowrap; vertical-align:1px;
   }
   .checklist-item.checked{color:var(--text);}
   .checklist-hint{font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.5;}
@@ -668,9 +688,12 @@
             <div class="field full">
               <label>Confluence checklist</label>
               <div class="checklist-box" id="checklistBox">
+                <div class="checklist-model">
+                  <div class="toggle-group" id="checklistModelToggle" role="group" aria-label="Checklist model"><!-- filled by JS --></div>
+                </div>
                 <div class="checklist-scoreboard" id="checklistScoreboard"><!-- filled by JS --></div>
                 <div id="checklistGrid"><!-- filled by JS --></div>
-                <div class="checklist-hint">Tick each confluence as you confirm it on your charts. The scoreboard above and the analysis text below update live.</div>
+                <div class="checklist-hint" id="checklistHint"><!-- filled by JS --></div>
               </div>
             </div>
             <div class="field full">
@@ -837,6 +860,7 @@
         <div class="util-row" style="margin-top:8px;">
           <button id="resetBtn" class="btn-danger">Erase all data</button>
         </div>
+        <p class="sync-hint" id="storageUsage"></p>
       </div>
 
       <div class="card">
@@ -933,75 +957,224 @@
   var newAccStage = STAGE_TYPES[0];
 
   // ---------- Confluence checklist ----------
-  var CHECKLIST_ITEMS = [
-    { id: "L1",  code: "L1",        group: "hard",    label: "Daily + 4H bias agree (HH+HL bull / LH+LL bear)" },
-    { id: "L2",  code: "L2",        group: "hard",    label: "IT zone active on 1H / 30M / 15M matching bias" },
-    { id: "L3",  code: "L3",        group: "hard",    label: "5M zone + structure independently matches bias" },
-    { id: "L4a", code: "L4",        group: "hard",    label: "Liquidity sweep on 1M within lookback window" },
-    { id: "L4b", code: "L4",        group: "hard",    label: "CISD confirmed — 1M candle closes through sweep extreme" },
-    { id: "S1",  code: "S1",        group: "session", label: "Inside Pre-NY (07:00–09:30) or NY AM (09:30–12:00), Mon–Thu" },
-    { id: "S2",  code: "S2",        group: "session", label: "Quarter is Q2 / Q3 / Q4 (Q1 Accumulation skipped)" },
-    { id: "S3",  code: "S3",        group: "session", label: "Computed R:R ≥ 3.0" },
-    { id: "CE",  code: "CE",        group: "bonus",   label: "Close through the FVG midpoint" },
-    { id: "Fib", code: "Fib",       group: "bonus",   label: "PD array — price in discount / premium" },
-    { id: "OTE", code: "OTE",       group: "bonus",   label: "Price inside the 61.8%–70.5% retracement band" }
-  ];
-  var CHECKLIST_GROUP_META = {
-    hard:    { label: "Hard conditions (5)", required: 5 },
-    session: { label: "Session / risk gates (3)", required: 3 },
-    bonus:   { label: "Bonus confluences (optional)", required: null }
+  // Two checklist models live side by side, chosen with the toggle at the
+  // top of the checklist box. Item ids are unique across both models, so a
+  // trade's saved ticks always map back to the right model:
+  //   topdown - DXY / US10Y / EXY top-down model, in execution order
+  //             (macro bias > 4H > 1H > 15m > 5m trigger > session & risk rules)
+  //   legacy  - the previous 1M CISD checklist, kept exactly as it was
+  //             (same ids, labels and gates, so older trades still restore)
+  // Labels in the top-down model follow the trade's side and symbol, e.g.
+  // a short shows "Buy-side liquidity swept", a long shows "Sell-side".
+
+  function ctxBias(ctx){ return ctx.side === "short" ? "bearish" : "bullish"; }
+  // Direction the dollar should move for this trade: down for a long on
+  // XXXUSD, up for a long on USDXXX. Empty when there's no USD leg / no symbol.
+  function usdArrow(ctx){
+    var s = ctx.symbol || "";
+    var isLong = ctx.side !== "short";
+    if(/^USD/.test(s)) return isLong ? "\u2191" : "\u2193";
+    if(/USD$/.test(s)) return isLong ? "\u2193" : "\u2191";
+    return "";
+  }
+  function isGold(ctx){ return /^XAU/.test(ctx.symbol || ""); }
+  function isMetal(ctx){ return /^(XAU|XAG)/.test(ctx.symbol || ""); }
+  function isEuro(ctx){ return /^EUR/.test(ctx.symbol || ""); }
+
+  var CHECKLIST_MODELS = {
+    topdown: {
+      name: "Top-down model",
+      toggleLabel: "Top-down (DXY \u00b7 US10Y \u00b7 EXY)",
+      hint: "Tick each item as you confirm it on your charts. Any required item missing means no trade. If DXY, US10Y and EXY disagree with each other, skip the trade or take it at half risk.",
+      groups: [
+        { id: "macro", label: "Macro bias \u00b7 before the session" },
+        { id: "h4",    label: "4H \u00b7 trend" },
+        { id: "h1",    label: "1H \u00b7 zone and liquidity" },
+        { id: "m15",   label: "15m \u00b7 point of interest" },
+        { id: "m5",    label: "5m \u00b7 trigger" },
+        { id: "rules", label: "Session and risk rules" }
+      ],
+      items: [
+        { id: "T_A1", code: "A1", group: "macro", required: true,
+          label: function(c){ var a = usdArrow(c); return "DXY " + (a ? a + " " : "") + "supports the " + ctxBias(c) + " bias"; } },
+        { id: "T_A2", code: "A2", group: "macro",
+          required: function(c){ return isMetal(c); }, // required for gold/silver, bonus for FX
+          label: function(c){ var a = usdArrow(c); return "US10Y " + (a ? a + " " : "") + "supports the bias"; } },
+        { id: "T_A3", code: "A3", group: "macro", required: true,
+          show: function(c){ return !c.symbol || isEuro(c); },
+          label: function(c){
+            return (c.side === "short" ? "EXY \u2193 \u2014 euro weak on its own" : "EXY \u2191 \u2014 euro strong on its own") +
+              (c.symbol ? "" : " (EUR pairs)");
+          } },
+        { id: "T_A4", code: "A4", group: "macro", required: false,
+          show: function(c){ return !c.symbol || isGold(c); },
+          label: function(c){
+            return "XAGUSD SMT \u2014 silver fails to confirm gold's last " + (c.side === "short" ? "high" : "low") +
+              (c.symbol ? "" : " (gold)");
+          } },
+
+        { id: "T_L1", code: "L1", group: "h4", required: true,
+          label: function(c){ return "Major trend " + ctxBias(c); } },
+        { id: "T_L2", code: "L2", group: "h4", required: false,
+          label: function(c){ return "Bubbles Volume " + ctxBias(c); } },
+
+        { id: "T_L3", code: "L3", group: "h1", required: true,
+          label: function(c){ return c.side === "short" ? "Intermediate high in a premium zone" : "Intermediate low in a discount zone"; } },
+        { id: "T_L4", code: "L4", group: "h1", required: true,
+          label: "Liquidity marked \u2014 Asian / London high-low, PDH / PDL, equal highs / lows" },
+
+        { id: "T_L5", code: "L5", group: "m15", required: true,
+          label: function(c){ return c.side === "short" ? "Bearish IFVG, or price rejects the POC from below" : "Bullish IFVG, or price rejects the POC from above"; } },
+        { id: "T_L6", code: "L6", group: "m15", required: false,
+          label: function(c){ return "Bubbles Volume shows " + (c.side === "short" ? "selling" : "buying") + " at the zone"; } },
+
+        { id: "T_L7", code: "L7", group: "m5", required: true,
+          label: function(c){ return (c.side === "short" ? "Buy-side" : "Sell-side") + " liquidity swept \u2014 wick through, candle closes back inside"; } },
+        { id: "T_L8", code: "L8", group: "m5", required: true,
+          label: function(c){ return "MSS with displacement \u2014 breaks the last swing " + (c.side === "short" ? "low" : "high"); } },
+        { id: "T_L9", code: "L9", group: "m5", required: true,
+          label: "Entry at the FVG / OB of the MSS leg" },
+
+        { id: "T_R1", code: "R1", group: "rules", required: true,
+          label: "Inside London or NY killzone \u2014 first trade of this session" },
+        { id: "T_R2", code: "R2", group: "rules", required: true,
+          label: "No red-folder news within \u00b130 min" },
+        { id: "T_R3", code: "R3", group: "rules", required: true,
+          label: function(c){ return "Target at " + (c.side === "short" ? "sell-side" : "buy-side") + " liquidity gives 1:2 \u2013 1:3 R:R"; } },
+        { id: "T_R4", code: "R4", group: "rules", required: true,
+          label: "Fewer than 2 trades today, and not after 2 losses" },
+        { id: "T_R5", code: "R5", group: "rules", required: true,
+          label: function(c){ return "Stop " + (c.side === "short" ? "above" : "below") + " the sweep; size matches the risk status"; } }
+      ]
+    },
+    legacy: {
+      name: "Previous model (1M CISD)",
+      toggleLabel: "Previous (1M CISD)",
+      hint: "Tick each confluence as you confirm it on your charts. The scoreboard above and the analysis text below update live.",
+      groups: [
+        { id: "hard",    label: "Hard conditions" },
+        { id: "session", label: "Session / risk gates" },
+        { id: "bonus",   label: "Bonus confluences" }
+      ],
+      items: [
+        { id: "L1",  code: "L1",  group: "hard",    required: true,  label: "Daily + 4H bias agree (HH+HL bull / LH+LL bear)" },
+        { id: "L2",  code: "L2",  group: "hard",    required: true,  label: "IT zone active on 1H / 30M / 15M matching bias" },
+        { id: "L3",  code: "L3",  group: "hard",    required: true,  label: "5M zone + structure independently matches bias" },
+        { id: "L4a", code: "L4",  group: "hard",    required: true,  label: "Liquidity sweep on 1M within lookback window" },
+        { id: "L4b", code: "L4",  group: "hard",    required: true,  label: "CISD confirmed \u2014 1M candle closes through sweep extreme" },
+        { id: "S1",  code: "S1",  group: "session", required: true,  label: "Inside Pre-NY (07:00\u201309:30) or NY AM (09:30\u201312:00), Mon\u2013Thu" },
+        { id: "S2",  code: "S2",  group: "session", required: true,  label: "Quarter is Q2 / Q3 / Q4 (Q1 Accumulation skipped)" },
+        { id: "S3",  code: "S3",  group: "session", required: true,  label: "Computed R:R \u2265 3.0" },
+        { id: "CE",  code: "CE",  group: "bonus",   required: false, label: "Close through the FVG midpoint" },
+        { id: "Fib", code: "Fib", group: "bonus",   required: false, label: "PD array \u2014 price in discount / premium" },
+        { id: "OTE", code: "OTE", group: "bonus",   required: false, label: "Price inside the 61.8%\u201370.5% retracement band" }
+      ]
+    }
   };
-  var CHECKLIST_GROUP_ORDER = ["hard", "session", "bonus"];
+  var CHECKLIST_MODEL_ORDER = ["topdown", "legacy"];
+  var DEFAULT_CHECKLIST_MODEL = "topdown";
+  var currentChecklistModel = DEFAULT_CHECKLIST_MODEL;
+  var lastChecklistModel = DEFAULT_CHECKLIST_MODEL; // the model new trades start on
 
   function defaultChecklist(){
     var c = {};
-    CHECKLIST_ITEMS.forEach(function(it){ c[it.id] = false; });
+    CHECKLIST_MODEL_ORDER.forEach(function(key){
+      CHECKLIST_MODELS[key].items.forEach(function(it){ c[it.id] = false; });
+    });
     return c;
   }
   var currentChecklist = defaultChecklist();
 
-  function checklistGroupCount(group){
-    return CHECKLIST_ITEMS.filter(function(it){ return it.group === group && currentChecklist[it.id]; }).length;
+  // Trades saved before models existed have no checklistModel field. If any
+  // of their saved keys belong to the previous model, open them in it.
+  function inferChecklistModel(trade){
+    if(trade.checklistModel && CHECKLIST_MODELS[trade.checklistModel]) return trade.checklistModel;
+    var ck = trade.checklist || {};
+    var legacyIds = CHECKLIST_MODELS.legacy.items.map(function(it){ return it.id; });
+    for(var i = 0; i < legacyIds.length; i++){
+      if(Object.prototype.hasOwnProperty.call(ck, legacyIds[i])) return "legacy";
+    }
+    return DEFAULT_CHECKLIST_MODEL;
+  }
+
+  function checklistCtx(){
+    var symEl = document.getElementById("f-symbol");
+    return { symbol: String(symEl ? symEl.value : "").trim().toUpperCase(), side: currentSide };
+  }
+  function itemLabel(it, ctx){ return typeof it.label === "function" ? it.label(ctx) : it.label; }
+  function itemRequired(it, ctx){ return typeof it.required === "function" ? !!it.required(ctx) : !!it.required; }
+  function itemVisible(it, ctx){ return it.show ? !!it.show(ctx) : true; }
+  function visibleItems(ctx, groupId){
+    return CHECKLIST_MODELS[currentChecklistModel].items.filter(function(it){
+      return itemVisible(it, ctx) && (!groupId || it.group === groupId);
+    });
+  }
+  function checklistTally(ctx, groupId){
+    var t = { req: 0, reqMet: 0, bonus: 0, bonusMet: 0 };
+    visibleItems(ctx, groupId).forEach(function(it){
+      var on = !!currentChecklist[it.id];
+      if(itemRequired(it, ctx)){ t.req++; if(on) t.reqMet++; }
+      else { t.bonus++; if(on) t.bonusMet++; }
+    });
+    t.missing = t.req - t.reqMet;
+    t.allMet = t.missing <= 0;
+    return t;
+  }
+
+  function renderChecklistModelToggle(){
+    var wrap = document.getElementById("checklistModelToggle");
+    wrap.innerHTML = "";
+    CHECKLIST_MODEL_ORDER.forEach(function(key){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = CHECKLIST_MODELS[key].toggleLabel;
+      b.className = key === currentChecklistModel ? "active" : "";
+      b.setAttribute("aria-pressed", key === currentChecklistModel ? "true" : "false");
+      b.addEventListener("click", function(){
+        if(currentChecklistModel === key) return;
+        currentChecklistModel = key;
+        lastChecklistModel = key;
+        renderChecklist();
+      });
+      wrap.appendChild(b);
+    });
   }
 
   function renderChecklistScoreboard(){
-    var wrap = document.getElementById("checklistScoreboard");
-    var hardN = checklistGroupCount("hard"), hardReq = CHECKLIST_GROUP_META.hard.required;
-    var sessN = checklistGroupCount("session"), sessReq = CHECKLIST_GROUP_META.session.required;
-    var bonusN = checklistGroupCount("bonus");
-    var allMet = (hardN >= hardReq) && (sessN >= sessReq);
-    var missing = Math.max(0, hardReq - hardN) + Math.max(0, sessReq - sessN);
-
-    function chip(label, n, req){
-      var met = req !== null ? n >= req : null;
-      var cls = met === null ? "" : (met ? "met" : "notmet");
-      var text = req !== null ? (label + " " + n + "/" + req) : (label + " +" + n);
-      return '<span class="checklist-chip ' + cls + '">' + text + "</span>";
-    }
-
-    var html =
-      chip("Hard", hardN, hardReq) +
-      chip("Session", sessN, sessReq) +
-      chip("Bonus", bonusN, null) +
-      '<span class="checklist-signal ' + (allMet ? "pass" : "") + '">' +
-        (allMet ? "\u2705 ALL GATES MET" : "\u274c " + missing + " GATE(S) MISSING") +
+    var t = checklistTally(checklistCtx());
+    document.getElementById("checklistScoreboard").innerHTML =
+      '<span class="checklist-chip ' + (t.allMet ? "met" : "notmet") + '">Required ' + t.reqMet + "/" + t.req + "</span>" +
+      '<span class="checklist-chip">Bonus +' + t.bonusMet + "</span>" +
+      '<span class="checklist-signal ' + (t.allMet ? "pass" : "") + '">' +
+        (t.allMet ? "\u2705 ALL REQUIRED MET" : "\u274c " + t.missing + " MISSING \u00b7 NO TRADE") +
       "</span>";
-    wrap.innerHTML = html;
   }
 
-  function renderChecklistGrid(){
+  function groupCountHtml(ctx, groupId){
+    var t = checklistTally(ctx, groupId);
+    if(t.req > 0) return '<span class="count' + (t.allMet ? " met" : "") + '">' + t.reqMet + "/" + t.req + "</span>";
+    return '<span class="count">+' + t.bonusMet + "</span>";
+  }
+
+  function renderChecklistGrid(focusId){
     var grid = document.getElementById("checklistGrid");
+    var model = CHECKLIST_MODELS[currentChecklistModel];
+    var ctx = checklistCtx();
     var html = "";
-    CHECKLIST_GROUP_ORDER.forEach(function(group){
-      var meta = CHECKLIST_GROUP_META[group];
-      html += '<div class="checklist-group">';
-      html += '<div class="checklist-group-label">' + meta.label + "</div>";
-      CHECKLIST_ITEMS.filter(function(it){ return it.group === group; }).forEach(function(it){
+    model.groups.forEach(function(g){
+      var items = visibleItems(ctx, g.id);
+      if(!items.length) return;
+      html += '<div class="checklist-group" data-group="' + g.id + '">';
+      html += '<div class="checklist-group-label"><span>' + escapeHtml(g.label) + "</span>" + groupCountHtml(ctx, g.id) + "</div>";
+      items.forEach(function(it){
         var checked = !!currentChecklist[it.id];
+        var req = itemRequired(it, ctx);
         html +=
           '<label class="checklist-item' + (checked ? " checked" : "") + '" data-id="' + it.id + '">' +
-            '<input type="checkbox" data-id="' + it.id + '"' + (checked ? " checked" : "") + '>' +
-            '<span><span class="code">' + it.code + "</span> \u2014 " + escapeHtml(it.label) + "</span>" +
+            '<input type="checkbox" data-id="' + it.id + '"' + (checked ? " checked" : "") + ">" +
+            '<span><span class="code">' + escapeHtml(it.code) + "</span> \u2014 " + escapeHtml(itemLabel(it, ctx)) +
+              (req ? "" : '<span class="opt">bonus</span>') +
+            "</span>" +
           "</label>";
       });
       html += "</div>";
@@ -1010,43 +1183,58 @@
     Array.prototype.forEach.call(grid.querySelectorAll('input[type="checkbox"]'), function(cb){
       cb.addEventListener("change", function(){
         currentChecklist[cb.dataset.id] = cb.checked;
-        cb.closest(".checklist-item").classList.toggle("checked", cb.checked);
         renderChecklistScoreboard();
+        renderChecklistGrid(cb.dataset.id); // refresh group counts, keep focus on this box
         updateAnalysisFromChecklist();
       });
     });
+    if(focusId){
+      var again = grid.querySelector('input[data-id="' + focusId + '"]');
+      if(again) again.focus();
+    }
   }
 
   function renderChecklist(){
+    renderChecklistModelToggle();
     renderChecklistScoreboard();
     renderChecklistGrid();
+    document.getElementById("checklistHint").textContent = CHECKLIST_MODELS[currentChecklistModel].hint;
   }
 
   function buildChecklistSummaryText(){
-    var hardN = checklistGroupCount("hard"), hardReq = CHECKLIST_GROUP_META.hard.required;
-    var sessN = checklistGroupCount("session"), sessReq = CHECKLIST_GROUP_META.session.required;
-    var bonusN = checklistGroupCount("bonus");
-    var allMet = (hardN >= hardReq) && (sessN >= sessReq);
-    var missing = Math.max(0, hardReq - hardN) + Math.max(0, sessReq - sessN);
-    var statusLine = "CONFLUENCE CHECKLIST \u2014 Hard " + hardN + "/" + hardReq +
-      " \u00b7 Session " + sessN + "/" + sessReq + " \u00b7 Bonus " + bonusN +
-      "  \u2192  " + (allMet ? "\u2705 ALL GATES MET" : "\u274c " + missing + " gate(s) missing");
+    var ctx = checklistCtx();
+    var model = CHECKLIST_MODELS[currentChecklistModel];
+    var t = checklistTally(ctx);
+    var statusLine = "CONFLUENCE CHECKLIST (" + model.name + ") \u2014 Required " + t.reqMet + "/" + t.req +
+      " \u00b7 Bonus " + t.bonusMet +
+      "  \u2192  " + (t.allMet ? "\u2705 ALL REQUIRED MET" : "\u274c " + t.missing + " missing \u2014 no trade");
 
     var lines = [statusLine, ""];
-    CHECKLIST_GROUP_ORDER.forEach(function(group){
-      lines.push(CHECKLIST_GROUP_META[group].label);
-      CHECKLIST_ITEMS.filter(function(it){ return it.group === group; }).forEach(function(it){
-        lines.push((currentChecklist[it.id] ? "\u2714" : "\u2610") + " " + it.code + " \u2014 " + it.label);
+    model.groups.forEach(function(g){
+      var items = visibleItems(ctx, g.id);
+      if(!items.length) return;
+      lines.push(g.label);
+      items.forEach(function(it){
+        lines.push((currentChecklist[it.id] ? "\u2714" : "\u2610") + " " + it.code + " \u2014 " + itemLabel(it, ctx) +
+          (itemRequired(it, ctx) ? "" : " (bonus)"));
       });
       lines.push("");
     });
     return lines.join("\n").replace(/\n+$/, "");
   }
 
+  // Only the active model's ticks are stored on the trade, together with
+  // which model they belong to.
+  function checklistForSave(){
+    var out = {};
+    CHECKLIST_MODELS[currentChecklistModel].items.forEach(function(it){ out[it.id] = !!currentChecklist[it.id]; });
+    return out;
+  }
+
   // Regenerates the Analysis / plan textarea from the checklist state. Only
-  // called when a checkbox actually changes (not on load/edit) so it never
-  // clobbers analysis text that was typed or saved before the checklist
-  // was touched in this session.
+  // called when a checkbox actually changes (not on load/edit/model switch)
+  // so it never clobbers analysis text that was typed or saved before the
+  // checklist was touched in this session.
   function updateAnalysisFromChecklist(){
     elAnalysis.value = buildChecklistSummaryText();
   }
@@ -1182,8 +1370,23 @@
     if(typeof rs.thRed !== "number" || isNaN(rs.thRed)) rs.thRed = 7;
     return d;
   }
+
+  // Most browsers give each site about 5 million characters of localStorage.
+  // Screenshots are stored inside the journal data, so they fill it fastest.
+  var STORAGE_SOFT_LIMIT = 5 * 1024 * 1024;
+  function updateStorageUsage(chars){
+    var el = document.getElementById("storageUsage");
+    if(!el) return;
+    var pct = (chars / STORAGE_SOFT_LIMIT) * 100;
+    var mb = chars / (1024 * 1024);
+    el.textContent = "Browser storage: " + mb.toFixed(1) + " MB of about 5 MB used (" + Math.min(100, pct).toFixed(0) + "%)." +
+      (pct >= 85 ? " Nearly full \u2014 export a backup, then remove older screenshots before adding new ones." : "");
+    el.style.color = pct >= 85 ? "var(--loss)" : "";
+  }
   function saveData(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    var json = JSON.stringify(data);
+    localStorage.setItem(STORAGE_KEY, json);
+    updateStorageUsage(json.length);
     scheduleSyncPush();
   }
   function todayStr(){
@@ -1273,9 +1476,12 @@
     elSideLong.classList.toggle("active-long", side === "long");
     elSideShort.classList.toggle("active-short", side === "short");
     updatePreview();
+    renderChecklist(); // labels follow the side (bullish/bearish, buy-side/sell-side)
   }
   elSideLong.addEventListener("click", function(){ setSide("long"); });
   elSideShort.addEventListener("click", function(){ setSide("short"); });
+  // The symbol decides which macro items apply (EXY for EUR pairs, silver SMT for gold).
+  elSymbol.addEventListener("input", function(){ renderChecklist(); });
 
   function updatePreview(){
     if(elEntry.value === "" || elExit.value === "" || elSize.value === ""){
@@ -1297,13 +1503,14 @@
   function resetForm(){
     elSymbol.value = ""; elEntry.value = ""; elExit.value = ""; elSize.value = ""; elFee.value = "";
     elAnalysis.value = ""; elResultNotes.value = "";
+    currentChecklist = defaultChecklist();
+    currentChecklistModel = lastChecklistModel;
     setSide("long");
     setFormAccount(activeFirmFilter !== "All" ? activeFirmFilter : (data.accounts[0] ? data.accounts[0].id : null));
     editingId = null;
     elFormTitle.textContent = "Log a trade";
     elSaveTrade.textContent = "Save trade";
     elCancelEdit.style.display = "none";
-    currentChecklist = defaultChecklist();
     renderChecklist();
     updatePreview();
   }
@@ -1333,7 +1540,8 @@
       side: currentSide,
       accountId: currentFormAccountId,
       analysis: elAnalysis.value.trim(),
-      checklist: Object.assign({}, currentChecklist),
+      checklistModel: currentChecklistModel,
+      checklist: checklistForSave(),
       entry: entryVal,
       exit: exitVal,
       size: sizeVal,
@@ -1341,13 +1549,20 @@
       notes: elResultNotes.value.trim(),
       pnl: pnl
     };
+    var previousTrades = data.trades.slice();
     if(editingId){
       var idx = data.trades.findIndex(function(t){ return t.id === editingId; });
       if(idx > -1) data.trades[idx] = trade;
     } else {
       data.trades.push(trade);
     }
-    saveData();
+    try{
+      saveData();
+    }catch(err){
+      data.trades = previousTrades;
+      alert("Couldn't save this trade \u2014 your browser's storage is full. Export a backup, remove some older screenshots, then save again. Your form is still filled in.");
+      return;
+    }
     resetForm();
     renderAll();
   });
@@ -1365,13 +1580,14 @@
     elFee.value = (t.fee === null || t.fee === undefined) ? "" : t.fee;
     elAnalysis.value = t.analysis || "";
     elResultNotes.value = t.notes || "";
+    // Restore this trade's checklist model and saved ticks (falls back to
+    // all-unchecked for trades logged before the checklist existed). This
+    // only reflects the saved state - it does not regenerate elAnalysis.value,
+    // so the trade's saved analysis text is left exactly as it was.
+    currentChecklistModel = inferChecklistModel(t);
+    currentChecklist = Object.assign(defaultChecklist(), t.checklist || {});
     setSide(t.side);
     setFormAccount(t.accountId || (data.accounts[0] ? data.accounts[0].id : null));
-    // Restore this trade's saved checklist state (falls back to all-unchecked
-    // for trades logged before the checklist existed). Rendering here just
-    // reflects the saved state — it does not regenerate elAnalysis.value, so
-    // the trade's saved analysis text is left exactly as it was.
-    currentChecklist = Object.assign(defaultChecklist(), t.checklist || {});
     renderChecklist();
     elFormTitle.textContent = "Edit trade";
     elSaveTrade.textContent = "Update trade";
@@ -2230,28 +2446,42 @@
     if(!file) return;
     var reader = new FileReader();
     reader.onload = function(e){
+      // Step 1: read and validate the file. Only this step can mean
+      // "this isn't a journal export".
+      var parsed;
       try{
-        var parsed = JSON.parse(e.target.result);
+        parsed = JSON.parse(e.target.result);
         if(!parsed || !Array.isArray(parsed.trades)) throw new Error("bad format");
-        data = normalizeData({
-          trades: parsed.trades,
-          notes: parsed.notes || {},
-          accounts: parsed.accounts || [
-            { id: "The5ers", name: "The5ers", firmType: "The5ers", stage: "Phase 1", starting: 0 },
-            { id: "FundingPips", name: "FundingPips", firmType: "FundingPips", stage: "Phase 1", starting: 0 }
-          ],
-          riskSettings: parsed.riskSettings
-        });
-        activeFirmFilter = "All";
-        currentFormAccountId = data.accounts[0] ? data.accounts[0].id : null;
-        saveData();
-        renderAccountTabs();
-        renderFormAccountSelect();
-        renderAll();
-        alert("Import complete.");
       }catch(err){
         alert("Could not read that file. Make sure it's a journal export.");
+        return;
       }
+      // Step 2: store it. A large backup (lots of screenshots) can be bigger
+      // than this browser allows; say so plainly and keep the current data.
+      var previousData = data;
+      data = normalizeData({
+        trades: parsed.trades,
+        notes: parsed.notes || {},
+        accounts: parsed.accounts || [
+          { id: "The5ers", name: "The5ers", firmType: "The5ers", stage: "Phase 1", starting: 0 },
+          { id: "FundingPips", name: "FundingPips", firmType: "FundingPips", stage: "Phase 1", starting: 0 }
+        ],
+        riskSettings: parsed.riskSettings
+      });
+      try{
+        saveData();
+      }catch(err){
+        data = previousData;
+        var mb = (e.target.result.length / (1024 * 1024)).toFixed(1);
+        alert("This backup (" + mb + " MB) is larger than this browser's storage allows, so nothing was changed. Most of the size is chart screenshots \u2014 remove some from the backup, or import it in a browser with more storage.");
+        return;
+      }
+      activeFirmFilter = "All";
+      currentFormAccountId = data.accounts[0] ? data.accounts[0].id : null;
+      renderAccountTabs();
+      renderFormAccountSelect();
+      renderAll();
+      alert("Import complete \u2014 " + data.trades.length + " trades and " + data.accounts.length + " accounts loaded.");
     };
     reader.readAsText(file);
     importFile.value = "";
@@ -2487,8 +2717,15 @@
           setSyncStatus("Pull cancelled", "");
           return;
         }
-        data = normalizeData(parsed);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        var pulled = normalizeData(parsed);
+        var pulledJson = JSON.stringify(pulled);
+        try{
+          localStorage.setItem(STORAGE_KEY, pulledJson);
+        }catch(storageErr){
+          throw new Error("The journal on GitHub is larger than this browser's storage allows, so nothing was changed here. Trim older screenshots, then pull again.");
+        }
+        data = pulled;
+        updateStorageUsage(pulledJson.length);
         activeFirmFilter = "All";
         currentFormAccountId = data.accounts[0] ? data.accounts[0].id : null;
         syncConfig.lastSynced = new Date().toISOString();
@@ -2644,6 +2881,7 @@
   renderNewAccStageToggle();
   setFormAccount(activeFirmFilter !== "All" ? activeFirmFilter : (data.accounts[0] ? data.accounts[0].id : null));
   renderChecklist();
+  updateStorageUsage(JSON.stringify(data).length);
   renderAll();
 })();
 </script>
