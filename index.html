@@ -341,6 +341,10 @@
     padding:0;cursor:pointer;
   }
   .shot-thumb .shot-remove:hover{border-color:var(--loss);color:var(--loss);}
+  .shot-placeholder{
+    display:flex;align-items:center;justify-content:center;width:100%;height:100%;
+    font-size:10.5px;color:var(--text-muted);text-align:center;padding:4px;
+  }
   .shot-empty-note{font-size:11.5px;color:var(--text-muted);margin-bottom:4px;}
 
   /* Lightbox */
@@ -780,7 +784,7 @@
         <div class="card-head"><h2>Chart screenshots</h2></div>
         <div class="shot-dropzone" id="shotDropzone">
           Drop chart screenshots here, or click to upload
-          <span class="hint">Saved automatically for this date · stored in this browser only</span>
+          <span class="hint">Saved automatically for this date · stored in this browser, included in backups and sync</span>
         </div>
         <input type="file" id="shotFileInput" accept="image/*" multiple style="display:none;">
         <div class="shot-grid" id="shotGrid"></div>
@@ -1372,15 +1376,25 @@
   }
 
   // Most browsers give each site about 5 million characters of localStorage.
-  // Screenshots are stored inside the journal data, so they fill it fastest.
+  // Trades, notes and accounts live there. Screenshots live in IndexedDB
+  // (see "Screenshot storage" below), which allows far more space.
   var STORAGE_SOFT_LIMIT = 5 * 1024 * 1024;
+  var lastJournalChars = 0;
   function updateStorageUsage(chars){
+    if(typeof chars === "number") lastJournalChars = chars;
     var el = document.getElementById("storageUsage");
     if(!el) return;
-    var pct = (chars / STORAGE_SOFT_LIMIT) * 100;
-    var mb = chars / (1024 * 1024);
-    el.textContent = "Browser storage: " + mb.toFixed(1) + " MB of about 5 MB used (" + Math.min(100, pct).toFixed(0) + "%)." +
-      (pct >= 85 ? " Nearly full \u2014 export a backup, then remove older screenshots before adding new ones." : "");
+    var pct = (lastJournalChars / STORAGE_SOFT_LIMIT) * 100;
+    var mb = lastJournalChars / (1024 * 1024);
+    var text = "Journal data: " + mb.toFixed(2) + " MB of about 5 MB (" + Math.min(100, pct).toFixed(0) + "%).";
+    var shots = screenshotStats();
+    if(typeof imgDb !== "undefined" && imgDb){
+      text += " Screenshots: " + shots.count + " (" + (shots.chars / (1024 * 1024)).toFixed(1) + " MB) in separate image storage.";
+    } else if(typeof imagesLoaded !== "undefined" && imagesLoaded){
+      text += " Image storage isn't available in this browser, so screenshots still count toward the 5 MB.";
+    }
+    if(pct >= 85) text += " Nearly full \u2014 export a backup, then remove older screenshots before adding new ones.";
+    el.textContent = text;
     el.style.color = pct >= 85 ? "var(--loss)" : "";
   }
   function saveData(){
@@ -1757,6 +1771,142 @@
   function getNoteEntry(ds){
     return data.notes[ds] || { text:"", moods:[], images:[] };
   }
+
+  // ---------- Screenshot storage (IndexedDB) ----------
+  // Screenshots used to be stored inside the journal data in localStorage,
+  // which browsers cap at about 5 MB per site. Now each image is a record in
+  // IndexedDB, and the journal only keeps {id, name} for it. Images still
+  // embedded in old data (an older backup, a gist pushed by an older version
+  // of this page, or this browser's own data before the upgrade) are moved
+  // over automatically. Export / Import and GitHub sync still carry the full
+  // images, so backups and other devices stay complete.
+  // If IndexedDB can't be opened, images simply stay embedded like before.
+  var IMG_DB_NAME = "tapeJournalImages_v1";
+  var IMG_STORE = "images";
+  var imgDb = null;          // open IDBDatabase, or null if unavailable
+  var imageCache = {};       // image id -> dataUrl
+  var imagesLoaded = false;  // true once the startup load/migration finished
+
+  function openImageDb(){
+    return new Promise(function(resolve){
+      try{
+        if(!window.indexedDB){ resolve(null); return; }
+        var req = window.indexedDB.open(IMG_DB_NAME, 1);
+        req.onupgradeneeded = function(){
+          var db = req.result;
+          if(!db.objectStoreNames.contains(IMG_STORE)) db.createObjectStore(IMG_STORE, { keyPath: "id" });
+        };
+        req.onsuccess = function(){ resolve(req.result); };
+        req.onerror = function(){ resolve(null); };
+        req.onblocked = function(){ resolve(null); };
+      }catch(e){ resolve(null); }
+    });
+  }
+  function idbWrite(fn){
+    return new Promise(function(resolve, reject){
+      var tx = imgDb.transaction(IMG_STORE, "readwrite");
+      fn(tx.objectStore(IMG_STORE));
+      tx.oncomplete = function(){ resolve(); };
+      tx.onerror = function(){ reject(tx.error); };
+      tx.onabort = function(){ reject(tx.error || new Error("Image storage write was cancelled")); };
+    });
+  }
+  function idbGetAll(){
+    return new Promise(function(resolve, reject){
+      var r = imgDb.transaction(IMG_STORE, "readonly").objectStore(IMG_STORE).getAll();
+      r.onsuccess = function(){ resolve(r.result || []); };
+      r.onerror = function(){ reject(r.error); };
+    });
+  }
+  function idbPutMany(records){
+    return idbWrite(function(store){ records.forEach(function(r){ store.put(r); }); })
+      .then(function(){ records.forEach(function(r){ imageCache[r.id] = r.dataUrl; }); });
+  }
+  function idbDeleteMany(ids){
+    return idbWrite(function(store){ ids.forEach(function(id){ store.delete(id); }); })
+      .then(function(){ ids.forEach(function(id){ delete imageCache[id]; }); });
+  }
+
+  function forEachImage(d, fn){
+    Object.keys(d.notes || {}).forEach(function(ds){
+      var e = d.notes[ds];
+      if(e && Array.isArray(e.images)) e.images.forEach(function(img){ if(img) fn(img, ds, e); });
+    });
+  }
+  function imageSrc(img){ return (img && (img.dataUrl || (imageCache && imageCache[img.id]))) || ""; }
+  function screenshotStats(){
+    var count = 0, chars = 0;
+    if(typeof data === "undefined" || !data) return { count: 0, chars: 0 };
+    forEachImage(data, function(img){ count++; chars += imageSrc(img).length; });
+    return { count: count, chars: chars };
+  }
+
+  // Moves screenshots embedded in d.notes into IndexedDB, then strips the
+  // image data from d (keeping {id, name}). d is only changed after the
+  // write succeeds. Resolves true if anything moved.
+  function moveInlineImagesToDb(d){
+    if(!imgDb) return Promise.resolve(false);
+    var records = [];
+    forEachImage(d, function(img, ds){
+      if(!img.id) img.id = uid();
+      if(img.dataUrl) records.push({ id: img.id, date: ds, name: img.name || "screenshot", dataUrl: img.dataUrl });
+    });
+    if(!records.length) return Promise.resolve(false);
+    return idbPutMany(records).then(function(){
+      Object.keys(d.notes).forEach(function(ds){
+        var e = d.notes[ds];
+        if(e && Array.isArray(e.images)){
+          e.images = e.images.filter(Boolean).map(function(img){ return { id: img.id, name: img.name || "screenshot" }; });
+        }
+      });
+      return true;
+    });
+  }
+
+  // Deletes stored images that the given journal no longer references
+  // (after an import, a pull, or erasing all data).
+  function pruneUnusedImages(d){
+    if(!imgDb) return Promise.resolve();
+    var used = {};
+    forEachImage(d, function(img){ used[img.id] = true; });
+    var stale = Object.keys(imageCache).filter(function(id){ return !used[id]; });
+    return stale.length ? idbDeleteMany(stale) : Promise.resolve();
+  }
+
+  // A copy of the journal with every screenshot embedded, for Export and
+  // GitHub sync. Same format as before, so older versions can still read it.
+  function buildFullData(){
+    var copy = JSON.parse(JSON.stringify(data));
+    forEachImage(copy, function(img){
+      var src = imageSrc(img);
+      if(src) img.dataUrl = src;
+    });
+    return copy;
+  }
+
+  function storageFullError(message){
+    var e = new Error(message);
+    e.storageFull = true;
+    return e;
+  }
+
+  // Replaces the journal with newData (from an import or a GitHub pull):
+  // moves its screenshots into IndexedDB, stores the rest in localStorage,
+  // then removes images from the old journal that are no longer used.
+  // On failure the current journal is left as it was.
+  function ingestJournal(newData){
+    return moveInlineImagesToDb(newData).catch(function(){ return false; }).then(function(){
+      var json = JSON.stringify(newData);
+      try{
+        localStorage.setItem(STORAGE_KEY, json);
+      }catch(err){
+        throw storageFullError("Too large for this browser's storage.");
+      }
+      data = newData;
+      updateStorageUsage(json.length);
+      return pruneUnusedImages(newData).catch(function(){});
+    });
+  }
   function imagesForDay(ds){
     var entry = data.notes[ds];
     return (entry && entry.images) ? entry.images : [];
@@ -1797,22 +1947,35 @@
     files.forEach(function(file){
       compressImage(file, function(dataUrl){
         if(!dataUrl) return;
-        var entry = getNoteEntry(targetDate);
-        entry = { text: entry.text || "", moods: entry.moods || [], images: (entry.images || []).slice() };
-        entry.images.push({ id: uid(), dataUrl: dataUrl, name: file.name || "screenshot" });
-        data.notes[targetDate] = entry;
-        try{
-          saveData();
-        }catch(err){
-          entry.images.pop();
-          alert("Couldn't save that screenshot — your browser's local storage is full. Try exporting a backup and removing some older screenshots.");
-          return;
-        }
-        // Only refresh the visible screenshot grid if we're still looking
-        // at the date this image was saved to — otherwise we'd wrongly
-        // render another day's images into the currently-viewed day.
-        if(selectedDate === targetDate) renderScreenshots();
-        renderCalendar();
+        var id = uid();
+        var name = file.name || "screenshot";
+        // With image storage available, the picture goes to IndexedDB and
+        // the journal only records {id, name}; otherwise it's embedded.
+        var stored = imgDb
+          ? idbPutMany([{ id: id, date: targetDate, name: name, dataUrl: dataUrl }]).then(function(){ return { id: id, name: name }; })
+          : Promise.resolve({ id: id, name: name, dataUrl: dataUrl });
+        imagesReady.then(function(){ return stored; }).then(function(meta){
+          var entry = getNoteEntry(targetDate);
+          entry = { text: entry.text || "", moods: entry.moods || [], images: (entry.images || []).slice() };
+          entry.images.push(meta);
+          var previous = data.notes[targetDate];
+          data.notes[targetDate] = entry;
+          try{
+            saveData();
+          }catch(err){
+            data.notes[targetDate] = previous;
+            if(imgDb) idbDeleteMany([id]).catch(function(){});
+            alert("Couldn't save that screenshot \u2014 your browser's storage is full. Export a backup and remove some older screenshots, then try again.");
+            return;
+          }
+          // Only refresh the visible screenshot grid if we're still looking
+          // at the date this image was saved to — otherwise we'd wrongly
+          // render another day's images into the currently-viewed day.
+          if(selectedDate === targetDate) renderScreenshots();
+          renderCalendar();
+        }).catch(function(){
+          alert("Couldn't save that screenshot \u2014 the browser refused to store it. Free up disk space or remove some older screenshots, then try again.");
+        });
       });
     });
   }
@@ -1822,8 +1985,10 @@
     if(!entry || !entry.images) return;
     entry.images = entry.images.filter(function(img){ return img.id !== id; });
     saveData();
+    if(imgDb) idbDeleteMany([id]).catch(function(){});
     renderScreenshots();
     renderCalendar();
+    updateStorageUsage();
   }
 
   function renderScreenshots(){
@@ -1833,9 +1998,16 @@
     images.forEach(function(img){
       var thumb = document.createElement("div");
       thumb.className = "shot-thumb";
-      thumb.innerHTML = '<img src="'+img.dataUrl+'" alt="'+escapeHtml(img.name)+'">'+
-        '<button class="shot-remove" title="Remove">✕</button>';
-      thumb.querySelector("img").addEventListener("click", function(){ openLightbox(img.dataUrl); });
+      var src = imageSrc(img);
+      if(src){
+        thumb.innerHTML = '<img src="'+src+'" alt="'+escapeHtml(img.name || "Chart screenshot")+'">'+
+          '<button class="shot-remove" title="Remove">✕</button>';
+      } else {
+        thumb.innerHTML = '<span class="shot-placeholder">'+(imagesLoaded ? "Image not found" : "Loading\u2026")+'</span>'+
+          '<button class="shot-remove" title="Remove">✕</button>';
+      }
+      var imgEl = thumb.querySelector("img");
+      if(imgEl) imgEl.addEventListener("click", function(){ openLightbox(src); });
       thumb.querySelector(".shot-remove").addEventListener("click", function(e){
         e.stopPropagation();
         if(confirm("Remove this screenshot?")) deleteScreenshot(img.id);
@@ -1879,6 +2051,28 @@
   });
   document.addEventListener("keydown", function(e){
     if(e.key === "Escape") closeLightbox();
+  });
+
+  // Open image storage, load every screenshot into memory, and move any
+  // still embedded in this browser's journal data out of localStorage.
+  // Anything that reads or replaces screenshots waits on imagesReady.
+  var imagesReady = openImageDb().then(function(db){
+    imgDb = db;
+    if(!db) return;
+    try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+    return idbGetAll().then(function(rows){
+      rows.forEach(function(r){ imageCache[r.id] = r.dataUrl; });
+      return moveInlineImagesToDb(data);
+    }).then(function(moved){
+      if(!moved) return;
+      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+    });
+  }).catch(function(err){
+    if(window.console) console.error("Screenshot storage:", err);
+  }).then(function(){
+    imagesLoaded = true;
+    renderScreenshots();
+    updateStorageUsage(JSON.stringify(data).length);
   });
 
   // ---------- Stats ----------
@@ -2429,15 +2623,17 @@
 
   // ---------- Backup ----------
   document.getElementById("exportBtn").addEventListener("click", function(){
-    var blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "trading-journal-backup-" + todayStr() + ".json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    imagesReady.then(function(){
+      var blob = new Blob([JSON.stringify(buildFullData(), null, 2)], {type:"application/json"});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "trading-journal-backup-" + todayStr() + ".json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    });
   });
   var importFile = document.getElementById("importFile");
   document.getElementById("importBtn").addEventListener("click", function(){ importFile.click(); });
@@ -2456,10 +2652,9 @@
         alert("Could not read that file. Make sure it's a journal export.");
         return;
       }
-      // Step 2: store it. A large backup (lots of screenshots) can be bigger
-      // than this browser allows; say so plainly and keep the current data.
-      var previousData = data;
-      data = normalizeData({
+      // Step 2: store it. Screenshots go to image storage; the rest to
+      // localStorage. If it still doesn't fit, say so and keep current data.
+      var incoming = normalizeData({
         trades: parsed.trades,
         notes: parsed.notes || {},
         accounts: parsed.accounts || [
@@ -2468,20 +2663,23 @@
         ],
         riskSettings: parsed.riskSettings
       });
-      try{
-        saveData();
-      }catch(err){
-        data = previousData;
-        var mb = (e.target.result.length / (1024 * 1024)).toFixed(1);
-        alert("This backup (" + mb + " MB) is larger than this browser's storage allows, so nothing was changed. Most of the size is chart screenshots \u2014 remove some from the backup, or import it in a browser with more storage.");
-        return;
-      }
-      activeFirmFilter = "All";
-      currentFormAccountId = data.accounts[0] ? data.accounts[0].id : null;
-      renderAccountTabs();
-      renderFormAccountSelect();
-      renderAll();
-      alert("Import complete \u2014 " + data.trades.length + " trades and " + data.accounts.length + " accounts loaded.");
+      var fileMb = (e.target.result.length / (1024 * 1024)).toFixed(1);
+      imagesReady.then(function(){ return ingestJournal(incoming); }).then(function(){
+        activeFirmFilter = "All";
+        currentFormAccountId = data.accounts[0] ? data.accounts[0].id : null;
+        renderAccountTabs();
+        renderFormAccountSelect();
+        renderAll();
+        scheduleSyncPush();
+        var shots = screenshotStats();
+        alert("Import complete \u2014 " + data.trades.length + " trades, " + data.accounts.length + " accounts and " + shots.count + " screenshots loaded.");
+      }).catch(function(err){
+        if(err && err.storageFull){
+          alert("This backup (" + fileMb + " MB) is larger than this browser's storage allows, so nothing was changed. Most of the size is chart screenshots \u2014 remove some from the backup, or import it in a browser with more storage.");
+        } else {
+          alert("The import couldn't be finished, so nothing was changed. Please try again.");
+        }
+      });
     };
     reader.readAsText(file);
     importFile.value = "";
@@ -2497,6 +2695,7 @@
     activeFirmFilter = "All";
     currentFormAccountId = data.accounts[0].id;
     saveData();
+    imagesReady.then(function(){ return pruneUnusedImages(data); }).catch(function(){}).then(function(){ updateStorageUsage(); });
     renderAccountTabs();
     renderFormAccountSelect();
     renderAll();
@@ -2623,8 +2822,9 @@
 
   function pushToGist(){
     if(!isSyncConfigured() || syncInFlight) return;
+    if(!imagesLoaded){ imagesReady.then(pushToGist); return; }
     syncInFlight = true;
-    var payload = JSON.stringify(data, null, 2);
+    var payload = JSON.stringify(buildFullData(), null, 2);
     var sizeMb = new Blob([payload]).size / (1024*1024);
     setSyncStatus(sizeMb > 0.8 ? "Syncing (large file, " + sizeMb.toFixed(1) + "MB)…" : "Syncing…", "pending");
     var files = {};
@@ -2718,14 +2918,12 @@
           return;
         }
         var pulled = normalizeData(parsed);
-        var pulledJson = JSON.stringify(pulled);
-        try{
-          localStorage.setItem(STORAGE_KEY, pulledJson);
-        }catch(storageErr){
-          throw new Error("The journal on GitHub is larger than this browser's storage allows, so nothing was changed here. Trim older screenshots, then pull again.");
-        }
-        data = pulled;
-        updateStorageUsage(pulledJson.length);
+        return imagesReady.then(function(){ return ingestJournal(pulled); }).catch(function(err){
+          if(err && err.storageFull){
+            throw new Error("The journal on GitHub is larger than this browser's storage allows, so nothing was changed here. Trim older screenshots, then pull again.");
+          }
+          throw err;
+        }).then(function(){
         activeFirmFilter = "All";
         currentFormAccountId = data.accounts[0] ? data.accounts[0].id : null;
         syncConfig.lastSynced = new Date().toISOString();
@@ -2743,6 +2941,7 @@
         }
         if(!jumped) renderAll();
         setSyncStatus("Synced " + fmtSyncTime(syncConfig.lastSynced), "ok");
+        });
       })
       .catch(function(err){
         setSyncStatus("Pull failed: " + describeSyncError(err), "error");
