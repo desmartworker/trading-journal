@@ -3455,7 +3455,13 @@
     }catch(e){}
     return { importance: "medium", countries: { us: true, eu: true } };
   })();
-  if(typeof tvPrefs.collapsed !== "boolean") tvPrefs.collapsed = true; // start compact
+  // The calendar starts open. Browsers that saved "closed" under the old
+  // default get it opened once; after that, Show / Hide is remembered.
+  if(typeof tvPrefs.collapsed !== "boolean" || tvPrefs.openByDefault !== true){
+    tvPrefs.collapsed = false;
+    tvPrefs.openByDefault = true;
+    saveTvPrefs();
+  }
   function applyTvCollapsed(){
     var card = document.getElementById("newsCard");
     var btn = document.getElementById("tvToggle");
