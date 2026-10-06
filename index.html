@@ -602,6 +602,13 @@
     padding:1px 6px;border-radius:20px;background:var(--loss-bg);color:var(--loss);
     text-transform:uppercase;vertical-align:1px;white-space:nowrap;
   }
+  .tv-legend{
+    display:flex;justify-content:space-between;align-items:baseline;gap:4px 14px;flex-wrap:wrap;
+    font-size:11.5px;color:var(--text-muted);margin:0 2px 8px;line-height:1.5;
+  }
+  .tv-legend b{color:var(--text);font-weight:600;}
+  .tv-legend a{color:var(--amber);font-weight:600;text-decoration:none;white-space:nowrap;}
+  .tv-legend a:hover{text-decoration:underline;}
   .tv-calendar-wrap{
     border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);
     height:400px;max-width:100%;
@@ -857,6 +864,10 @@
         <div id="tvBody">
           <div class="news-toolbar">
             <div class="news-filters" id="tvFilters"></div>
+          </div>
+          <div class="tv-legend">
+            <span>Numbers on each row, left to right: <b>Actual</b> · <b>Forecast</b> · <b>Prior</b>. Upcoming events have no Actual yet.</span>
+            <a href="https://www.tradingview.com/economic-calendar/" target="_blank" rel="noopener">Full calendar with headers ↗</a>
           </div>
           <div class="tv-calendar-wrap" id="tvCalendarWrap"></div>
         <p class="sync-hint" id="newsStatus"></p>
