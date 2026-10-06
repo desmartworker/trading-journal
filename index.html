@@ -586,6 +586,24 @@
   .kz-header.soon{background:var(--warning);color:#ffffff;}
   .kz-header.weekend{background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border);}
   @media (max-width:480px){ .kz-header .cd-opt{display:none;} }
+  .form-grid label.offsession-check{
+    display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:normal;
+    font-size:12.5px;color:var(--text);margin:2px 0 0;cursor:pointer;
+  }
+  .offsession-check input{width:15px;height:15px;accent-color:var(--loss);flex-shrink:0;cursor:pointer;}
+  .offsession-warn{
+    display:block;margin-top:6px;font-size:11.5px;line-height:1.45;color:var(--loss);
+    background:var(--loss-bg);border-radius:6px;padding:6px 10px;
+  }
+  .offsession-warn[hidden]{display:none;}
+  .journal-toast{
+    position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%) translateY(8px);
+    background:var(--text);color:var(--bg);font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;
+    box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:120;
+    max-width:calc(100vw - 32px);text-align:center;
+  }
+  .journal-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .journal-toast.warn{background:var(--loss);color:#ffffff;}
   .offsession-pill{
     display:inline-block;margin-left:6px;font-size:9.5px;font-weight:700;letter-spacing:.04em;
     padding:1px 6px;border-radius:20px;background:var(--loss-bg);color:var(--loss);
@@ -913,6 +931,13 @@
               <label for="f-fee">Fee ($)</label>
               <input id="f-fee" type="number" step="any" min="0" placeholder="0.00">
               <span class="hint" style="font-size:10.5px;color:var(--text-muted);display:block;margin-top:4px;">Commission + swap. Deducted from P&amp;L.</span>
+            </div>
+            <div class="field full offsession-field">
+              <label class="offsession-check" for="f-offsession">
+                <input type="checkbox" id="f-offsession">
+                <span>Off-session trade — taken outside the London / New York killzones</span>
+              </label>
+              <span class="offsession-warn" id="offsessionWarn" hidden>⚠ It’s outside the killzones right now (rule R1), so this was ticked for you. Untick it if you took the trade inside a killzone and are logging it later.</span>
             </div>
           </div>
         </div>
@@ -1956,7 +1981,49 @@
   }
   [elEntry, elExit, elSize, elFee].forEach(function(el){ el.addEventListener("input", updatePreview); });
 
+  var elOffSession = document.getElementById("f-offsession");
+  var elOffSessionWarn = document.getElementById("offsessionWarn");
+  var offSessionTouched = false; // true once the trader sets the box themselves
+
+  // Tick the Off-session box when an entry for today is being logged outside
+  // the killzones, unless the trader already decided (or it's a saved trade
+  // that already had an entry).
+  function maybeFlagOffSession(){
+    if(offSessionTouched || elOffSession.checked) return;
+    if(elEntry.value === "" || selectedDate !== todayStr() || inKillzoneNow()) return;
+    var prev = editingId ? data.trades.find(function(t){ return t.id === editingId; }) : null;
+    if(prev && prev.entry !== null && prev.entry !== undefined) return;
+    elOffSession.checked = true;
+    elOffSessionWarn.hidden = false;
+  }
+  elEntry.addEventListener("input", maybeFlagOffSession);
+  elOffSession.addEventListener("change", function(){
+    offSessionTouched = true;
+    if(!elOffSession.checked) elOffSessionWarn.hidden = true;
+  });
+
+  var toastTimer = null;
+  function showToast(text, warn){
+    var el = document.getElementById("journalToast");
+    if(!el){
+      el = document.createElement("div");
+      el.id = "journalToast";
+      el.className = "journal-toast";
+      el.setAttribute("role", "status");
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.className = "journal-toast" + (warn ? " warn" : "");
+    void el.offsetWidth;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 2800);
+  }
+
   function resetForm(){
+    elOffSession.checked = false;
+    elOffSessionWarn.hidden = true;
+    offSessionTouched = false;
     elSymbol.value = ""; elEntry.value = ""; elExit.value = ""; elSize.value = ""; elFee.value = "";
     elAnalysis.value = ""; elResultNotes.value = "";
     currentChecklist = defaultChecklist();
@@ -1989,18 +2056,11 @@
       ? calcPnl(entryVal, exitVal, sizeVal, currentSide, symbol, feeVal)
       : null;
 
-    // Rule R1: entries for today outside the killzones need an explicit
-    // confirmation and are tagged Off-session, so their cost shows in stats.
-    var prevTrade = editingId ? data.trades.find(function(t){ return t.id === editingId; }) : null;
-    var offSession = !!(prevTrade && prevTrade.offSession);
-    var addingEntry = entryVal !== null && (!prevTrade || prevTrade.entry === null || prevTrade.entry === undefined);
-    if(addingEntry && selectedDate === todayStr() && !inKillzoneNow()){
-      var ok = confirm("\ud83d\udeab You're outside the London and New York killzones.\n\n" +
-        "Your rule R1 says no new trades now. Log this as an OFF-SESSION trade anyway?\n\n" +
-        "It will be tagged and counted in your Off-session stats.");
-      if(!ok) return;
-      offSession = true;
-    }
+    // Rule R1: the Off-session box is ticked automatically when an entry for
+    // today is typed outside the killzones (see maybeFlagOffSession), but the
+    // trader decides: the clock only shows when the trade is being logged.
+    maybeFlagOffSession();
+    var offSession = elOffSession.checked;
 
     var trade = {
       id: editingId || uid(),
@@ -2019,6 +2079,7 @@
       pnl: pnl
     };
     if(offSession) trade.offSession = true;
+    var savedOffSession = offSession;
     var previousTrades = data.trades.slice();
     if(editingId){
       var idx = data.trades.findIndex(function(t){ return t.id === editingId; });
@@ -2035,6 +2096,7 @@
     }
     resetForm();
     renderAll();
+    showToast(savedOffSession ? "Saved \u00b7 tagged Off-session (outside killzones)" : "Trade saved", savedOffSession);
   });
 
   elCancelEdit.addEventListener("click", resetForm);
@@ -2050,6 +2112,11 @@
     elFee.value = (t.fee === null || t.fee === undefined) ? "" : t.fee;
     elAnalysis.value = t.analysis || "";
     elResultNotes.value = t.notes || "";
+    elOffSession.checked = !!t.offSession;
+    elOffSessionWarn.hidden = true;
+    // Saved trades keep their saved choice; an analysis-only trade can still be
+    // auto-flagged when its entry is added (maybeFlagOffSession checks that).
+    offSessionTouched = false;
     // Restore this trade's checklist model and saved ticks (falls back to
     // all-unchecked for trades logged before the checklist existed). This
     // only reflects the saved state - it does not regenerate elAnalysis.value,
