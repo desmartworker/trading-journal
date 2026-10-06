@@ -8,7 +8,7 @@
   (function(){
     try{
       var saved = localStorage.getItem("tapeJournalTheme_v1");
-      var theme = saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      var theme = saved || "light"; // light by default; the theme button's choice is remembered
       if(theme === "dark") document.documentElement.setAttribute("data-theme", "dark");
     }catch(e){}
   })();
