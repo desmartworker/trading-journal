@@ -570,10 +570,38 @@
   .kz-pill.live{border-color:var(--gain);background:var(--gain-bg);}
   .kz-pill.live .kz-name{color:var(--gain);}
   .kz-pill.live .kz-dot{background:var(--gain);opacity:1;box-shadow:0 0 0 3px var(--gain-bg);}
-  .kz-status{flex-basis:100%;font-size:12px;line-height:1.45;color:var(--text);}
+  .kz-status{
+    flex-basis:100%;font-size:12.5px;line-height:1.5;color:var(--text);
+    border-radius:8px;padding:10px 12px 10px 14px;border:1px solid var(--border);
+    background:var(--surface-2);position:relative;overflow:hidden;
+  }
+  .kz-status::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--kz-color, var(--border));}
+  .kz-status b{display:block;font-size:14px;letter-spacing:.01em;margin-bottom:1px;}
   .kz-status .countdown{font-family:'IBM Plex Mono',monospace;font-weight:600;white-space:nowrap;}
+  .kz-status.live{--kz-color:var(--gain);background:var(--gain-bg);border-color:transparent;}
   .kz-status.live b{color:var(--gain);}
-  .kz-status.idle b{color:var(--warning);}
+  .kz-status.idle{--kz-color:var(--loss);background:var(--loss-bg);border-color:var(--loss);}
+  .kz-status.idle b{color:var(--loss);text-transform:uppercase;font-size:15px;}
+  .kz-status.soon{--kz-color:var(--warning);background:var(--warning-bg);border-color:var(--warning);}
+  .kz-status.soon b{color:var(--warning);}
+  .kz-status.weekend b{color:var(--text-muted);}
+  /* Session badge in the sticky header */
+  .kz-header{
+    font-size:10.5px;font-weight:700;letter-spacing:.06em;padding:4px 10px;border-radius:20px;
+    white-space:nowrap;text-transform:uppercase;font-family:'Inter',sans-serif;
+  }
+  .kz-header:empty{display:none;}
+  .kz-header .countdown{font-family:'IBM Plex Mono',monospace;letter-spacing:0;text-transform:none;}
+  .kz-header.live{background:var(--gain);color:#ffffff;}
+  .kz-header.idle{background:var(--loss);color:#ffffff;}
+  .kz-header.soon{background:var(--warning);color:#ffffff;}
+  .kz-header.weekend{background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border);}
+  @media (max-width:480px){ .kz-header .cd-opt{display:none;} }
+  .offsession-pill{
+    display:inline-block;margin-left:6px;font-size:9.5px;font-weight:700;letter-spacing:.04em;
+    padding:1px 6px;border-radius:20px;background:var(--loss-bg);color:var(--loss);
+    text-transform:uppercase;vertical-align:1px;white-space:nowrap;
+  }
   .tv-calendar-wrap{
     border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);
     height:400px;max-width:100%;
@@ -627,6 +655,7 @@
     </div>
     <div class="header-right">
       <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"></button>
+      <span class="kz-header" id="kzHeader" aria-live="polite"></span>
       <div class="ny-clock">
         <span id="nyClockTime" class="mono">--:--:--</span>
         <span class="zone-label">New York</span>
@@ -904,6 +933,7 @@
           <div class="stat"><div class="label">Profit factor</div><div class="value" id="statPF">—</div></div>
           <div class="stat"><div class="label">Streak</div><div class="value" id="statStreak">—</div></div>
           <div class="stat" style="grid-column:1/-1;"><div class="label">Open trades</div><div class="value" id="statOpen">0</div></div>
+          <div class="stat" style="grid-column:1/-1;"><div class="label">Off-session trades (outside killzones)</div><div class="value" id="statOffSession">0</div></div>
         </div>
       </div>
 
@@ -1615,6 +1645,19 @@
       ? calcPnl(entryVal, exitVal, sizeVal, currentSide, symbol, feeVal)
       : null;
 
+    // Rule R1: entries for today outside the killzones need an explicit
+    // confirmation and are tagged Off-session, so their cost shows in stats.
+    var prevTrade = editingId ? data.trades.find(function(t){ return t.id === editingId; }) : null;
+    var offSession = !!(prevTrade && prevTrade.offSession);
+    var addingEntry = entryVal !== null && (!prevTrade || prevTrade.entry === null || prevTrade.entry === undefined);
+    if(addingEntry && selectedDate === todayStr() && !inKillzoneNow()){
+      var ok = confirm("\ud83d\udeab You're outside the London and New York killzones.\n\n" +
+        "Your rule R1 says no new trades now. Log this as an OFF-SESSION trade anyway?\n\n" +
+        "It will be tagged and counted in your Off-session stats.");
+      if(!ok) return;
+      offSession = true;
+    }
+
     var trade = {
       id: editingId || uid(),
       date: selectedDate,
@@ -1631,6 +1674,7 @@
       notes: elResultNotes.value.trim(),
       pnl: pnl
     };
+    if(offSession) trade.offSession = true;
     var previousTrades = data.trades.slice();
     if(editingId){
       var idx = data.trades.findIndex(function(t){ return t.id === editingId; });
@@ -1760,7 +1804,7 @@
       var sizeDisplay = (t.size === null || t.size === undefined) ? "—" : t.size;
       var feeDisplay = (t.fee === null || t.fee === undefined) ? "—" : money(t.fee);
       tr.innerHTML =
-        '<td><strong>'+escapeHtml(t.symbol)+'</strong></td>'+
+        '<td><strong>'+escapeHtml(t.symbol)+'</strong>'+(t.offSession ? '<span class="offsession-pill" title="Entered outside the killzones">Off-session</span>' : '')+'</td>'+
         '<td>'+(t.side === "long" ? "Long" : "Short")+'</td>'+
         '<td>'+accountPillHtml(t.accountId)+'</td>'+
         '<td class="mono">'+entryDisplay+'</td>'+
@@ -2184,6 +2228,13 @@
     streakEl.className = "value " + (streakType === "W" ? "up" : (streakType === "L" ? "down" : ""));
 
     document.getElementById("statOpen").textContent = openCount;
+
+    var off = allTrades.filter(function(t){ return t.offSession; });
+    var offClosed = off.filter(isClosed);
+    var offPnl = offClosed.reduce(function(s2,t){ return s2 + t.pnl; }, 0);
+    var offEl = document.getElementById("statOffSession");
+    offEl.textContent = off.length ? (off.length + " \u00b7 " + (offClosed.length ? money(offPnl) : "no closed P&L yet")) : "0";
+    offEl.className = "value " + (off.length && offClosed.length ? (offPnl < 0 ? "down" : "up") : "");
   }
 
   // ---------- Equity curve ----------
@@ -3359,22 +3410,48 @@
       "</div>";
     }).join("");
 
-    var status;
+    var status, badgeCls, badgeHtml;
+    var dowNow = keyDate(nyKey(now)).getUTCDay();
+    var weekend = dowNow === 0 || dowNow === 6;
     if(live){
-      status = '<div class="kz-status live"><b>\u25cf ' + live.kz.name + ' killzone is live</b> \u2014 ends in <span class="countdown">' +
-        fmtCountdown(live.end - now) + '</span>. One trade max this session; check the news window before entering.</div>';
+      status = '<div class="kz-status live"><b>\u25cf ' + live.kz.name + ' killzone is live</b>Ends in <span class="countdown">' +
+        fmtCountdown(live.end - now) + '</span>. One trade max this session \u2014 check the news window before entering.</div>';
+      badgeCls = "live";
+      badgeHtml = "Killzone live<span class=\"cd-opt\"> \u00b7 <span class=\"countdown\">" + fmtCountdown(live.end - now) + "</span></span>";
     } else if(next){
       var nextDay = keyDate(next.key);
       var sameDay = next.key === nyKey(now);
       var when = (sameDay ? "at " : "on " + DOW_SHORT[nextDay.getUTCDay()] + " at ") + localHM(next.start) + " your time";
-      var dow = keyDate(nyKey(now)).getUTCDay();
-      var lead = (dow === 0 || dow === 6) ? "Weekend \u2014 no killzones." : "Outside killzones \u2014 no new trades.";
-      status = '<div class="kz-status idle"><b>' + lead + '</b> Next: ' + next.kz.name + ' ' + when +
-        ' (in <span class="countdown">' + fmtCountdown(next.start - now) + '</span>).</div>';
+      var untilNext = next.start - now;
+      if(weekend){
+        status = '<div class="kz-status weekend"><b>Weekend \u2014 markets closed.</b>Next: ' + next.kz.name + ' ' + when +
+          ' (in <span class="countdown">' + fmtCountdown(untilNext) + '</span>). Good time to review the week\u2019s trades.</div>';
+        badgeCls = "weekend"; badgeHtml = "Weekend";
+      } else if(untilNext <= 15 * 60000){
+        status = '<div class="kz-status soon"><b>\u23f3 Get ready \u2014 ' + next.kz.name + ' killzone starts in <span class="countdown">' +
+          fmtCountdown(untilNext) + '</span></b>Mark liquidity, check the news, then wait for the sweep and MSS. Don\u2019t enter early.</div>';
+        badgeCls = "soon";
+        badgeHtml = (next.kz.id === "ny" ? "NY" : "London") + " open in <span class=\"countdown\">" + fmtCountdown(untilNext) + "</span>";
+      } else {
+        status = '<div class="kz-status idle"><b>\ud83d\udeab Outside killzones \u2014 no new trades</b>Next: ' + next.kz.name + ' ' + when +
+          ' (in <span class="countdown">' + fmtCountdown(untilNext) + '</span>). Use this time to mark levels and review \u2014 not to enter.</div>';
+        badgeCls = "idle";
+        badgeHtml = "No-trade zone<span class=\"cd-opt\"> \u00b7 <span class=\"countdown\">" + fmtCountdown(untilNext) + "</span></span>";
+      }
     } else {
-      status = "";
+      status = ""; badgeCls = ""; badgeHtml = "";
     }
     el.innerHTML = html + status;
+    var badge = document.getElementById("kzHeader");
+    if(badge){
+      badge.className = "kz-header" + (badgeCls ? " " + badgeCls : "");
+      badge.innerHTML = badgeHtml;
+      badge.title = badgeCls === "idle" ? "Outside the London and New York killzones \u2014 no new trades" : "";
+    }
+  }
+  function inKillzoneNow(){
+    var now = Date.now();
+    return kzSessions().some(function(x){ return now >= x.start && now < x.end; });
   }
 
   // Called every second by the clock: killzone countdown each second,
