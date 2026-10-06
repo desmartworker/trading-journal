@@ -582,29 +582,32 @@
   .news-list{display:flex;flex-direction:column;}
   .kz-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
   .kz-pill{
-    flex:1 1 220px;display:flex;flex-direction:column;gap:2px;padding:9px 12px;
+    flex:1 1 220px;display:flex;flex-direction:column;gap:1px;padding:6px 10px;
     border:1px solid var(--border);border-radius:8px;background:var(--surface-2);
   }
-  .kz-pill .kz-name{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:6px;}
+  .kz-pill .kz-name{font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;}
   .kz-pill .kz-dot{width:7px;height:7px;border-radius:50%;background:var(--text-muted);opacity:.5;}
-  .kz-pill .kz-times{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text-muted);}
+  .kz-pill .kz-times{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-muted);}
   .kz-pill.live{border-color:var(--gain);background:var(--gain-bg);}
   .kz-pill.live .kz-name{color:var(--gain);}
   .kz-pill.live .kz-dot{background:var(--gain);opacity:1;box-shadow:0 0 0 3px var(--gain-bg);}
-  .kz-status{flex-basis:100%;font-size:12.5px;line-height:1.5;color:var(--text);}
+  .kz-status{flex-basis:100%;font-size:12px;line-height:1.45;color:var(--text);}
   .kz-status .countdown{font-family:'IBM Plex Mono',monospace;font-weight:600;white-space:nowrap;}
   .kz-status.live b{color:var(--gain);}
   .kz-status.idle b{color:var(--warning);}
   .tv-calendar-wrap{
     border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);
-    height:620px;max-width:100%;
+    height:400px;max-width:100%;
   }
   .tv-calendar-wrap .tradingview-widget-container,
   .tv-calendar-wrap .tradingview-widget-container__widget{height:100%;width:100%;}
   .tv-calendar-wrap iframe{display:block;max-width:100%;}
   .tv-fallback{padding:28px 16px;text-align:center;font-size:13px;color:var(--text-muted);line-height:1.6;}
   .tv-fallback a{color:var(--amber);font-weight:600;}
-  @media (max-width:640px){ .tv-calendar-wrap{height:560px;} }
+  @media (max-width:640px){ .tv-calendar-wrap{height:420px;} }
+  #newsCard.collapsed #tvBody{display:none;}
+  #newsCard.collapsed .kz-strip{margin-bottom:0;}
+  #newsCard .card-head{margin-bottom:10px;}
   .news-row{
     display:grid;grid-template-columns:96px 44px minmax(0,1fr) auto;gap:12px;align-items:center;
     padding:9px 8px;border-bottom:1px solid var(--border);font-size:13px;
@@ -760,14 +763,16 @@
           <h2>Economic calendar</h2>
           <div class="news-head-right">
             <span class="eyebrow">US · Euro Area · live</span>
+            <button id="tvToggle" class="btn-ghost news-refresh" type="button" aria-expanded="false" aria-controls="tvBody">Show calendar</button>
           </div>
         </div>
         <div class="kz-strip" id="kzStrip" aria-live="polite"></div>
         <div class="news-banner" id="newsBanner" aria-live="polite" style="display:none;"></div>
-        <div class="news-toolbar">
-          <div class="news-filters" id="tvFilters"></div>
-        </div>
-        <div class="tv-calendar-wrap" id="tvCalendarWrap"></div>
+        <div id="tvBody">
+          <div class="news-toolbar">
+            <div class="news-filters" id="tvFilters"></div>
+          </div>
+          <div class="tv-calendar-wrap" id="tvCalendarWrap"></div>
         <p class="sync-hint" id="newsStatus"></p>
         <details class="risk-settings" id="newsFeedSettings">
           <summary>Optional: R2 countdown banner</summary>
@@ -783,6 +788,7 @@
           </div>
           <p class="risk-settings-note">The TradingView calendar can't be read by the journal, so it can't warn you about rule R2 on its own. If you add a GitHub feed of ForexFactory's calendar here (set up with the calendar.yml workflow), a banner above the calendar shows a countdown to the next red-folder event and a warning during the ±30-minute no-trade window. Leave it empty to skip the banner.</p>
         </details>
+        </div>
       </div>
 
       <div class="card">
@@ -3205,6 +3211,22 @@
     }catch(e){}
     return { importance: "medium", countries: { us: true, eu: true } };
   })();
+  if(typeof tvPrefs.collapsed !== "boolean") tvPrefs.collapsed = true; // start compact
+  function applyTvCollapsed(){
+    var card = document.getElementById("newsCard");
+    var btn = document.getElementById("tvToggle");
+    if(!card || !btn) return;
+    card.classList.toggle("collapsed", tvPrefs.collapsed);
+    btn.textContent = tvPrefs.collapsed ? "Show calendar" : "Hide calendar";
+    btn.setAttribute("aria-expanded", tvPrefs.collapsed ? "false" : "true");
+    var wrap = document.getElementById("tvCalendarWrap");
+    if(tvPrefs.collapsed){
+      clearTimeout(tvLoadTimer);
+      if(wrap) wrap.innerHTML = ""; // unload the widget while hidden
+    } else if(wrap && !wrap.firstChild){
+      renderTvCalendar();
+    }
+  }
   var tvLoadTimer = null;
   function saveTvPrefs(){ try{ localStorage.setItem(TV_PREFS_KEY, JSON.stringify(tvPrefs)); }catch(e){} }
 
@@ -3244,7 +3266,7 @@
 
   function renderTvCalendar(){
     var wrap = document.getElementById("tvCalendarWrap");
-    if(!wrap) return;
+    if(!wrap || tvPrefs.collapsed) return;
     clearTimeout(tvLoadTimer);
     wrap.innerHTML = "";
     var container = document.createElement("div");
@@ -3712,7 +3734,12 @@
   }
 
   renderTvFilters();
-  renderTvCalendar();
+  document.getElementById("tvToggle").addEventListener("click", function(){
+    tvPrefs.collapsed = !tvPrefs.collapsed;
+    saveTvPrefs();
+    applyTvCollapsed();
+  });
+  applyTvCollapsed();
   var elNewsFeedUrl = document.getElementById("newsFeedUrl");
   elNewsFeedUrl.value = newsPrefs.feedUrl || "";
   if(!newsPrefs.feedUrl) document.getElementById("newsFeedSettings").open = false;
