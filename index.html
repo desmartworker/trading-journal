@@ -632,6 +632,14 @@
     .news-vals{grid-column:3;}
   }
 
+  /* Section heading above a group of cards (e.g. Account management) */
+  .section-heading{
+    display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    margin:2px 2px 12px;
+  }
+  .section-heading h2{font-size:19px;}
+  .section-heading .eyebrow{margin:0;}
+
   /* Account balance — separate card per account */
   .account-balance-card{margin-bottom:16px;}
   .account-balance-card .card-head h2{
@@ -907,6 +915,10 @@
     <!-- SIDE COLUMN -->
     <div class="col-side">
 
+      <div class="section-heading">
+        <h2>Account management</h2>
+        <span class="eyebrow" id="accountCountLabel"></span>
+      </div>
       <div id="balanceCardsWrap"><!-- filled by JS: one .card per account --></div>
 
       <div class="card">
@@ -2603,6 +2615,8 @@
   }
   function renderBalances(){
     var wrap = document.getElementById("balanceCardsWrap");
+    var countEl = document.getElementById("accountCountLabel");
+    if(countEl) countEl.textContent = data.accounts.length + (data.accounts.length === 1 ? " account" : " accounts");
     wrap.innerHTML = "";
     if(!data.accounts.length){
       wrap.innerHTML = '<div class="card"><div class="empty-state" style="padding:8px 0;">No accounts yet. Add one below.</div></div>';
@@ -3250,6 +3264,7 @@
       width: "100%",
       height: "100%",
       locale: "en",
+      timezone: "America/New_York", // not documented for this widget; ignored if unsupported
       importanceFilter: imp.filter,
       countryFilter: (countries.length ? countries : ["us", "eu"]).join(",")
     });
@@ -3561,10 +3576,29 @@
     }).join("");
   }
 
+  // How far New York is from the viewer, e.g. "New York is 11 hours behind
+  // you". Recomputed live, so it changes by itself after a clock change.
+  function nyOffsetMinutes(){
+    var now = Date.now();
+    var p = nyParts(now);
+    var nyAsUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
+    var nyOffset = Math.round((nyAsUtc - now) / 60000);           // NY minus UTC
+    var localOffset = -new Date(now).getTimezoneOffset();         // local minus UTC
+    return localOffset - nyOffset;                                // local minus NY
+  }
+  function nyOffsetCaption(){
+    var d = nyOffsetMinutes();
+    if(Math.abs(d) < 1) return "times shown in New York time (same as yours).";
+    var h = Math.floor(Math.abs(d) / 60), m = Math.abs(d) % 60;
+    var amount = h + (m ? "h " + m + "m" : (h === 1 ? " hour" : " hours"));
+    return "times should show in New York time. If they match your clock instead, " +
+      (d > 0 ? "subtract " : "add ") + amount + " to get New York time (New York is " + amount +
+      (d > 0 ? " behind you)." : " ahead of you).");
+  }
   function renderNewsStatus(){
     var el = document.getElementById("newsStatus");
     if(!el) return;
-    var text = "Live calendar by TradingView \u00b7 times shown in your local time zone.";
+    var text = "Live calendar by TradingView \u00b7 " + nyOffsetCaption();
     if(newsPrefs.feedUrl){
       if(newsState.loading) text += " R2 banner: updating\u2026";
       else if(newsState.fetchedAt) text += " R2 banner: updated " + localStampFmt.format(new Date(newsState.fetchedAt)) + " via your GitHub feed.";
@@ -3673,6 +3707,7 @@
       newsLastMinute = m;
       if(document.getElementById("newsList")) renderNewsList();
       if(newsPrefs.feedUrl) fetchNews(false);
+      renderNewsStatus();
     }
   }
 
