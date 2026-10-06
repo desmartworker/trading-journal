@@ -3647,10 +3647,10 @@
     } else if(next){
       var nextDay = keyDate(next.key);
       var sameDay = next.key === nyKey(now);
-      var when = (sameDay ? "" : DOW_SHORT[nextDay.getUTCDay()] + " ") + localHM(next.start) + " your time";
+      var when = (sameDay ? "at " : "on " + DOW_SHORT[nextDay.getUTCDay()] + " at ") + localHM(next.start) + " your time";
       var dow = keyDate(nyKey(now)).getUTCDay();
       var lead = (dow === 0 || dow === 6) ? "Weekend \u2014 no killzones." : "Outside killzones \u2014 no new trades.";
-      status = '<div class="kz-status idle"><b>' + lead + '</b> Next: ' + next.kz.name + ' at ' + when +
+      status = '<div class="kz-status idle"><b>' + lead + '</b> Next: ' + next.kz.name + ' ' + when +
         ' (in <span class="countdown">' + fmtCountdown(next.start - now) + '</span>).</div>';
     } else {
       status = "";
