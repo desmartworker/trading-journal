@@ -742,36 +742,6 @@
     </details>
   </div>
 
-  <div class="card" id="newsCard">
-    <div class="card-head">
-      <h2>Economic calendar</h2>
-      <div class="news-head-right">
-        <span class="eyebrow">US · Euro Area · live</span>
-      </div>
-    </div>
-    <div class="kz-strip" id="kzStrip" aria-live="polite"></div>
-    <div class="news-banner" id="newsBanner" aria-live="polite" style="display:none;"></div>
-    <div class="news-toolbar">
-      <div class="news-filters" id="tvFilters"></div>
-    </div>
-    <div class="tv-calendar-wrap" id="tvCalendarWrap"></div>
-    <p class="sync-hint" id="newsStatus"></p>
-    <details class="risk-settings" id="newsFeedSettings">
-      <summary>Optional: R2 countdown banner</summary>
-      <div class="form-grid form-grid-2" style="margin-top:10px;">
-        <div class="field full">
-          <label for="newsFeedUrl">Your GitHub feed URL <span style="text-transform:none;font-weight:400;">(raw link to calendar.json)</span></label>
-          <input id="newsFeedUrl" type="url" placeholder="https://raw.githubusercontent.com/your-name/forex-calendar/main/calendar.json" autocomplete="off">
-        </div>
-      </div>
-      <div class="form-actions" style="margin-top:10px;">
-        <button id="newsFeedClear" class="btn-ghost" type="button">Clear</button>
-        <button id="newsFeedSave" class="btn-primary" type="button">Save &amp; load</button>
-      </div>
-      <p class="risk-settings-note">The TradingView calendar can't be read by the journal, so it can't warn you about rule R2 on its own. If you add a GitHub feed of ForexFactory's calendar here (set up with the calendar.yml workflow), a banner above the calendar shows a countdown to the next red-folder event and a warning during the ±30-minute no-trade window. Leave it empty to skip the banner.</p>
-    </details>
-  </div>
-
   <div class="grid">
 
     <!-- MAIN COLUMN -->
@@ -783,6 +753,36 @@
         <button id="nextDay" class="btn-ghost" aria-label="Next day">→</button>
         <input type="date" id="datePicker">
         <button id="todayBtn" class="btn-ghost">Today</button>
+      </div>
+
+      <div class="card" id="newsCard">
+        <div class="card-head">
+          <h2>Economic calendar</h2>
+          <div class="news-head-right">
+            <span class="eyebrow">US · Euro Area · live</span>
+          </div>
+        </div>
+        <div class="kz-strip" id="kzStrip" aria-live="polite"></div>
+        <div class="news-banner" id="newsBanner" aria-live="polite" style="display:none;"></div>
+        <div class="news-toolbar">
+          <div class="news-filters" id="tvFilters"></div>
+        </div>
+        <div class="tv-calendar-wrap" id="tvCalendarWrap"></div>
+        <p class="sync-hint" id="newsStatus"></p>
+        <details class="risk-settings" id="newsFeedSettings">
+          <summary>Optional: R2 countdown banner</summary>
+          <div class="form-grid form-grid-2" style="margin-top:10px;">
+            <div class="field full">
+              <label for="newsFeedUrl">Your GitHub feed URL <span style="text-transform:none;font-weight:400;">(raw link to calendar.json)</span></label>
+              <input id="newsFeedUrl" type="url" placeholder="https://raw.githubusercontent.com/your-name/forex-calendar/main/calendar.json" autocomplete="off">
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top:10px;">
+            <button id="newsFeedClear" class="btn-ghost" type="button">Clear</button>
+            <button id="newsFeedSave" class="btn-primary" type="button">Save &amp; load</button>
+          </div>
+          <p class="risk-settings-note">The TradingView calendar can't be read by the journal, so it can't warn you about rule R2 on its own. If you add a GitHub feed of ForexFactory's calendar here (set up with the calendar.yml workflow), a banner above the calendar shows a countdown to the next red-folder event and a warning during the ±30-minute no-trade window. Leave it empty to skip the banner.</p>
+        </details>
       </div>
 
       <div class="card">
