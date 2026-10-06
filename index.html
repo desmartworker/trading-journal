@@ -551,6 +551,87 @@
   .checklist-item.checked{color:var(--text);}
   .checklist-hint{font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.5;}
 
+  /* Economic calendar */
+  .news-head-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .news-head-right .eyebrow{margin:0;}
+  .news-refresh{padding:4px 10px;font-size:12px;}
+  .news-banner{
+    position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);
+    background:var(--surface-2);padding:10px 14px 10px 18px;margin-bottom:14px;
+    font-size:13px;line-height:1.55;
+  }
+  .news-banner::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--news-color, var(--border));}
+  .news-banner.alert{--news-color:var(--loss);background:var(--loss-bg);}
+  .news-banner.soon{--news-color:var(--warning);background:var(--warning-bg);}
+  .news-banner.clear{--news-color:var(--gain);background:var(--gain-bg);}
+  .news-banner .lead{font-weight:700;}
+  .news-banner .countdown{font-family:'IBM Plex Mono',monospace;font-weight:600;white-space:nowrap;}
+  .news-banner .sub{display:block;font-size:12px;color:var(--text-muted);margin-top:2px;}
+  .news-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+  .news-days, .news-filters{display:flex;gap:6px;flex-wrap:wrap;}
+  .news-day{padding:6px 12px;border-radius:20px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px;color:var(--text-muted);}
+  .news-day.today{color:var(--text);}
+  .news-day.active{background:var(--amber);color:var(--amber-text);border-color:var(--amber);}
+  .news-day .hi{
+    min-width:17px;height:17px;border-radius:9px;padding:0 5px;font-size:10px;line-height:17px;text-align:center;
+    background:var(--loss);color:#ffffff;font-family:'IBM Plex Mono',monospace;
+  }
+  .news-chip{padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:600;color:var(--text-muted);background:transparent;}
+  .news-chip.on{color:var(--text);background:var(--surface-2);border-color:var(--text-muted);}
+  .news-chip .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;}
+  .news-list{display:flex;flex-direction:column;}
+  .kz-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .kz-pill{
+    flex:1 1 220px;display:flex;flex-direction:column;gap:2px;padding:9px 12px;
+    border:1px solid var(--border);border-radius:8px;background:var(--surface-2);
+  }
+  .kz-pill .kz-name{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:6px;}
+  .kz-pill .kz-dot{width:7px;height:7px;border-radius:50%;background:var(--text-muted);opacity:.5;}
+  .kz-pill .kz-times{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text-muted);}
+  .kz-pill.live{border-color:var(--gain);background:var(--gain-bg);}
+  .kz-pill.live .kz-name{color:var(--gain);}
+  .kz-pill.live .kz-dot{background:var(--gain);opacity:1;box-shadow:0 0 0 3px var(--gain-bg);}
+  .kz-status{flex-basis:100%;font-size:12.5px;line-height:1.5;color:var(--text);}
+  .kz-status .countdown{font-family:'IBM Plex Mono',monospace;font-weight:600;white-space:nowrap;}
+  .kz-status.live b{color:var(--gain);}
+  .kz-status.idle b{color:var(--warning);}
+  .tv-calendar-wrap{
+    border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);
+    height:620px;max-width:100%;
+  }
+  .tv-calendar-wrap .tradingview-widget-container,
+  .tv-calendar-wrap .tradingview-widget-container__widget{height:100%;width:100%;}
+  .tv-calendar-wrap iframe{display:block;max-width:100%;}
+  .tv-fallback{padding:28px 16px;text-align:center;font-size:13px;color:var(--text-muted);line-height:1.6;}
+  .tv-fallback a{color:var(--amber);font-weight:600;}
+  @media (max-width:640px){ .tv-calendar-wrap{height:560px;} }
+  .news-row{
+    display:grid;grid-template-columns:96px 44px minmax(0,1fr) auto;gap:12px;align-items:center;
+    padding:9px 8px;border-bottom:1px solid var(--border);font-size:13px;
+  }
+  .news-row:last-child{border-bottom:none;}
+  .news-row.past{opacity:.48;}
+  .news-row.next{box-shadow:inset 3px 0 0 var(--amber);}
+  .news-row.live{background:var(--loss-bg);border-radius:6px;box-shadow:inset 3px 0 0 var(--loss);}
+  .news-time .ny{display:block;font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  .news-time .local{display:block;font-size:10.5px;color:var(--text-muted);}
+  .news-cur{font-size:10.5px;font-weight:700;padding:2px 0;border-radius:4px;text-align:center;letter-spacing:.04em;}
+  .news-cur.usd{background:var(--accent-light);color:var(--amber);}
+  .news-cur.eur{background:var(--caution-bg);color:var(--caution);}
+  .news-title{display:flex;align-items:center;gap:8px;min-width:0;}
+  .news-title .txt{overflow-wrap:anywhere;}
+  .news-impact{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+  .imp-High{background:var(--loss);}
+  .imp-Medium{background:var(--warning);}
+  .imp-Low{background:var(--caution);}
+  .imp-Holiday{background:var(--text-muted);}
+  .news-vals{display:flex;gap:14px;font-size:11.5px;color:var(--text-muted);white-space:nowrap;}
+  .news-vals b{font-family:'IBM Plex Mono',monospace;color:var(--text);font-weight:600;}
+  @media (max-width:640px){
+    .news-row{grid-template-columns:64px 40px minmax(0,1fr);gap:8px 10px;}
+    .news-vals{grid-column:3;}
+  }
+
   /* Account balance — separate card per account */
   .account-balance-card{margin-bottom:16px;}
   .account-balance-card .card-head h2{
@@ -650,6 +731,36 @@
       <div class="risk-settings-note">
         Risk halves at Caution, quarters at Warning, and stops at Stop — a losing streak of 3+ can trigger the same cuts even before drawdown catches up. A winning streak of 3+ can raise risk slightly, but only while still Normal. Drawdown here only counts equity below your starting balance — giving back open profit doesn't count.
       </div>
+    </details>
+  </div>
+
+  <div class="card" id="newsCard">
+    <div class="card-head">
+      <h2>Economic calendar</h2>
+      <div class="news-head-right">
+        <span class="eyebrow">US · Euro Area · live</span>
+      </div>
+    </div>
+    <div class="kz-strip" id="kzStrip" aria-live="polite"></div>
+    <div class="news-banner" id="newsBanner" aria-live="polite" style="display:none;"></div>
+    <div class="news-toolbar">
+      <div class="news-filters" id="tvFilters"></div>
+    </div>
+    <div class="tv-calendar-wrap" id="tvCalendarWrap"></div>
+    <p class="sync-hint" id="newsStatus"></p>
+    <details class="risk-settings" id="newsFeedSettings">
+      <summary>Optional: R2 countdown banner</summary>
+      <div class="form-grid form-grid-2" style="margin-top:10px;">
+        <div class="field full">
+          <label for="newsFeedUrl">Your GitHub feed URL <span style="text-transform:none;font-weight:400;">(raw link to calendar.json)</span></label>
+          <input id="newsFeedUrl" type="url" placeholder="https://raw.githubusercontent.com/your-name/forex-calendar/main/calendar.json" autocomplete="off">
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:10px;">
+        <button id="newsFeedClear" class="btn-ghost" type="button">Clear</button>
+        <button id="newsFeedSave" class="btn-primary" type="button">Save &amp; load</button>
+      </div>
+      <p class="risk-settings-note">The TradingView calendar can't be read by the journal, so it can't warn you about rule R2 on its own. If you add a GitHub feed of ForexFactory's calendar here (set up with the calendar.yml workflow), a banner above the calendar shows a countdown to the next red-folder event and a warning during the ±30-minute no-trade window. Leave it empty to skip the banner.</p>
     </details>
   </div>
 
@@ -940,6 +1051,7 @@
     else document.documentElement.removeAttribute("data-theme");
     try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
     applyThemeIcon();
+    if(typeof renderTvCalendar === "function" && document.getElementById("tvCalendarWrap")) renderTvCalendar();
   }
   document.getElementById("themeToggle").addEventListener("click", function(){
     setTheme(currentTheme() === "dark" ? "light" : "dark");
@@ -3056,7 +3168,538 @@
       : '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 7.75-1.5"></path></svg>';
     icon.title = isClosed ? "Forex market closed" : "Forex market open";
     document.getElementById("nyClockStatus").textContent = isClosed ? "Forex market closed" : "Forex market open";
+    tickNews();
   }
+
+  // ---------- TradingView economic calendar widget ----------
+  // Live calendar with actual / forecast / previous, embedded from
+  // TradingView. It runs in its own frame, so browser restrictions on
+  // reading other sites don't apply. Times are in your local time zone.
+  // Filters are remembered; the widget is rebuilt when they or the theme change.
+  var TV_PREFS_KEY = "tapeJournalTvCalendar_v1";
+  var TV_SCRIPT = "https://s3.tradingview.com/external-embedding/embed-widget-events.js";
+  var TV_IMPORTANCE = [
+    { id: "high",   label: "High only",     filter: "1" },
+    { id: "medium", label: "Medium + High", filter: "0,1" },
+    { id: "all",    label: "All",           filter: "-1,0,1" }
+  ];
+  var TV_COUNTRIES = [ { id: "us", label: "US" }, { id: "eu", label: "Euro Area" } ];
+  var tvPrefs = (function(){
+    try{
+      var p = JSON.parse(localStorage.getItem(TV_PREFS_KEY) || "null");
+      if(p && p.importance && p.countries) return p;
+    }catch(e){}
+    return { importance: "medium", countries: { us: true, eu: true } };
+  })();
+  var tvLoadTimer = null;
+  function saveTvPrefs(){ try{ localStorage.setItem(TV_PREFS_KEY, JSON.stringify(tvPrefs)); }catch(e){} }
+
+  function renderTvFilters(){
+    var wrap = document.getElementById("tvFilters");
+    if(!wrap) return;
+    wrap.innerHTML = "";
+    function chip(label, on, onClick){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "news-chip" + (on ? " on" : "");
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.textContent = label;
+      b.addEventListener("click", onClick);
+      wrap.appendChild(b);
+    }
+    TV_COUNTRIES.forEach(function(c){
+      chip(c.label, !!tvPrefs.countries[c.id], function(){
+        var next = !tvPrefs.countries[c.id];
+        var others = TV_COUNTRIES.some(function(o){ return o.id !== c.id && tvPrefs.countries[o.id]; });
+        if(!next && !others) return; // keep at least one region selected
+        tvPrefs.countries[c.id] = next;
+        saveTvPrefs(); renderTvFilters(); renderTvCalendar();
+      });
+    });
+    var sep = document.createElement("span");
+    sep.style.cssText = "width:1px;background:var(--border);margin:2px 4px;";
+    wrap.appendChild(sep);
+    TV_IMPORTANCE.forEach(function(imp){
+      chip(imp.label, tvPrefs.importance === imp.id, function(){
+        if(tvPrefs.importance === imp.id) return;
+        tvPrefs.importance = imp.id;
+        saveTvPrefs(); renderTvFilters(); renderTvCalendar();
+      });
+    });
+  }
+
+  function renderTvCalendar(){
+    var wrap = document.getElementById("tvCalendarWrap");
+    if(!wrap) return;
+    clearTimeout(tvLoadTimer);
+    wrap.innerHTML = "";
+    var container = document.createElement("div");
+    container.className = "tradingview-widget-container";
+    var inner = document.createElement("div");
+    inner.className = "tradingview-widget-container__widget";
+    container.appendChild(inner);
+    var imp = TV_IMPORTANCE.filter(function(i){ return i.id === tvPrefs.importance; })[0] || TV_IMPORTANCE[1];
+    var countries = TV_COUNTRIES.filter(function(c){ return tvPrefs.countries[c.id]; }).map(function(c){ return c.id; });
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.async = true;
+    script.src = TV_SCRIPT;
+    script.text = JSON.stringify({
+      colorTheme: currentTheme() === "dark" ? "dark" : "light",
+      isTransparent: true,
+      width: "100%",
+      height: "100%",
+      locale: "en",
+      importanceFilter: imp.filter,
+      countryFilter: (countries.length ? countries : ["us", "eu"]).join(",")
+    });
+    container.appendChild(script);
+    wrap.appendChild(container);
+    // If nothing has loaded after 10 seconds (offline, or the page is opened
+    // somewhere that blocks embedded content), offer a direct link instead.
+    tvLoadTimer = setTimeout(function(){
+      if(!wrap.querySelector("iframe")){
+        wrap.innerHTML = '<div class="tv-fallback">The TradingView calendar didn\u2019t load here. ' +
+          'Check your connection, or open this journal in a regular browser tab.<br>' +
+          '<a href="https://www.tradingview.com/economic-calendar/" target="_blank" rel="noopener">Open the calendar on TradingView \u2197</a>' +
+          ' \u00b7 <a href="#" id="tvRetry">Try again</a></div>';
+        var retry = document.getElementById("tvRetry");
+        if(retry) retry.addEventListener("click", function(e){ e.preventDefault(); renderTvCalendar(); });
+      }
+    }, 10000);
+  }
+
+  // ---------- Economic calendar (USD & EUR, Mon-Fri) ----------
+  // Source: ForexFactory's public weekly feed (served from faireconomy.media).
+  // It carries forecast and previous values, not actual results. Times are
+  // shown in New York time with the viewer's local time beside them.
+  // The feed asks for light use, so it's re-read automatically at most every
+  // 30 minutes and the Refresh button at most every 5 minutes; the last copy
+  // is cached so the card works instantly (and offline) on the next visit.
+  // If the browser blocks the direct request (CORS), two public CORS relays
+  // are tried as fallbacks. The data is public, nothing private is sent.
+  var NEWS_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
+  var NEWS_CACHE_KEY = "tapeJournalNews_v1";
+  var NEWS_PREFS_KEY = "tapeJournalNewsPrefs_v1";
+  var NEWS_AUTO_MS = 30 * 60 * 1000;
+  var NEWS_MANUAL_MIN_MS = 5 * 60 * 1000;
+  var NEWS_WINDOW_MIN = 30; // rule R2: no trades within ±30 min of red-folder news
+  var NEWS_CURRENCIES = ["USD", "EUR"];
+  var NEWS_IMPACTS = ["High", "Medium", "Low", "Holiday"];
+  // Tried in order. Your own GitHub copy of the feed (see "Calendar feed
+  // source" in the card) is the reliable route; the others are fallbacks.
+  // corsproxy.io was removed: it now requires a paid key outside localhost.
+  // Only used for the optional R2 banner, and only when a GitHub feed URL is set.
+  function newsSources(){
+    return newsPrefs.feedUrl ? [{ label: "your GitHub feed", url: newsPrefs.feedUrl }] : [];
+  }
+  var newsState = { events: [], fetchedAt: 0, loading: false, error: null, note: null, day: null, source: null };
+  var newsPrefs = loadNewsPrefs();
+  var newsLastMinute = -1;
+
+  var NY_TZ = "America/New_York";
+  var nyFmt = new Intl.DateTimeFormat("en-US", { timeZone: NY_TZ, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  var localTimeFmt = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
+  var localStampFmt = new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+
+  function nyParts(t){
+    var o = {};
+    nyFmt.formatToParts(new Date(t)).forEach(function(p){ o[p.type] = p.value; });
+    if(o.hour === "24") o.hour = "00";
+    return o;
+  }
+  function nyKey(t){ var p = nyParts(t); return p.year + "-" + p.month + "-" + p.day; }
+  function nyHM(t){ var p = nyParts(t); return p.hour + ":" + p.minute; }
+  function keyDate(k){ var a = k.split("-"); return new Date(Date.UTC(+a[0], +a[1] - 1, +a[2])); }
+  // Mon-Fri of the trading week in New York. Sunday already looks ahead to
+  // the coming week, matching the feed, which switches weeks on Sunday.
+  function newsWeekKeys(){
+    var base = keyDate(nyKey(Date.now()));
+    var dow = base.getUTCDay();
+    var offset = dow === 0 ? 1 : 1 - dow;
+    var keys = [];
+    for(var i = 0; i < 5; i++) keys.push(new Date(base.getTime() + (offset + i) * 86400000).toISOString().slice(0, 10));
+    return keys;
+  }
+  var DOW_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var MON_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function dayLabel(k){ var d = keyDate(k); return DOW_SHORT[d.getUTCDay()] + " " + d.getUTCDate(); }
+
+  function loadNewsPrefs(){
+    try{
+      var p = JSON.parse(localStorage.getItem(NEWS_PREFS_KEY) || "null");
+      if(p && p.impacts && p.currencies) return p;
+    }catch(e){}
+    return { impacts: { High: true, Medium: true, Low: false, Holiday: true }, currencies: { USD: true, EUR: true } };
+  }
+  function saveNewsPrefs(){ try{ localStorage.setItem(NEWS_PREFS_KEY, JSON.stringify(newsPrefs)); }catch(e){} }
+  function loadNewsCache(){
+    try{
+      var c = JSON.parse(localStorage.getItem(NEWS_CACHE_KEY) || "null");
+      if(c && Array.isArray(c.events)){ newsState.events = c.events; newsState.fetchedAt = c.fetchedAt || 0; }
+    }catch(e){}
+  }
+  function saveNewsCache(){
+    try{ localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify({ events: newsState.events, fetchedAt: newsState.fetchedAt })); }catch(e){}
+  }
+
+  function normImpact(i){
+    i = String(i || "");
+    if(/high/i.test(i)) return "High";
+    if(/med/i.test(i)) return "Medium";
+    if(/holiday/i.test(i)) return "Holiday";
+    return "Low";
+  }
+  function normalizeNews(raw){
+    if(!Array.isArray(raw)) throw new Error("unexpected format");
+    return raw.filter(function(e){ return e && NEWS_CURRENCIES.indexOf(e.country) > -1 && e.date; })
+      .map(function(e){
+        return { title: String(e.title || "Untitled"), cur: e.country, t: Date.parse(e.date),
+          impact: normImpact(e.impact), forecast: String(e.forecast || ""), previous: String(e.previous || "") };
+      })
+      .filter(function(e){ return !isNaN(e.t); })
+      .sort(function(a, b){ return a.t - b.t; });
+  }
+  function newsCoversThisWeek(){
+    var keys = newsWeekKeys();
+    return newsState.events.some(function(e){ return keys.indexOf(nyKey(e.t)) > -1; });
+  }
+  // Plain fetch(url) with no options object: some hosts (in-app previews,
+  // sandboxed frames) replace fetch with a bridge that can't pass an
+  // AbortSignal or other options along. The timeout is a race instead.
+  function fetchJsonWithTimeout(url, ms){
+    var timer;
+    var timeout = new Promise(function(_, reject){
+      timer = setTimeout(function(){ reject(new Error("timed out")); }, ms);
+    });
+    var request = Promise.resolve().then(function(){ return fetch(url); }).then(function(r){
+      if(!r || !r.ok) throw new Error("HTTP " + (r ? r.status : "error"));
+      return r.text();
+    }).then(function(text){
+      try{ return JSON.parse(text); }
+      catch(e){ throw new Error("the feed didn't return calendar data"); }
+    });
+    return Promise.race([request, timeout]).then(
+      function(j){ clearTimeout(timer); return j; },
+      function(err){ clearTimeout(timer); throw err; }
+    );
+  }
+  function fetchNews(manual){
+    if(newsState.loading) return;
+    if(!newsPrefs.feedUrl){
+      newsState.events = []; newsState.error = null; newsState.note = null; newsState.fetchedAt = 0;
+      renderNews();
+      return;
+    }
+    var age = Date.now() - newsState.fetchedAt;
+    var fresh = newsState.events.length && newsCoversThisWeek();
+    if(!manual && fresh && age < NEWS_AUTO_MS) return;
+    if(manual && fresh && age < NEWS_MANUAL_MIN_MS){
+      newsState.note = "Already up to date \u2014 the feed can be refreshed again " +
+        Math.ceil((NEWS_MANUAL_MIN_MS - age) / 60000) + " min from now.";
+      renderNewsStatus();
+      return;
+    }
+    newsState.loading = true; newsState.error = null; newsState.note = null;
+    renderNewsStatus();
+    var sources = newsSources(), i = 0, failures = [];
+    (function attempt(){
+      var src = sources[i];
+      fetchJsonWithTimeout(src.url, 12000).then(function(raw){
+        newsState.events = normalizeNews(raw);
+        newsState.fetchedAt = Date.now();
+        newsState.source = src.label;
+        newsState.loading = false;
+        saveNewsCache();
+        renderNews();
+      }).catch(function(err){
+        var msg = err && err.message ? err.message : "error";
+        if(/failed to fetch|load failed|networkerror/i.test(msg)) msg = "blocked by the browser";
+        failures.push(src.label + ": " + msg);
+        i++;
+        if(i < sources.length) return attempt();
+        newsState.loading = false;
+        newsState.error = "R2 banner: couldn't read your GitHub feed (" + failures.join("; ") + ").";
+        renderNews();
+      });
+    })();
+  }
+
+  function newsVisible(e){ return !!newsPrefs.currencies[e.cur] && !!newsPrefs.impacts[e.impact]; }
+  function redFolders(){
+    return newsState.events.filter(function(e){ return e.impact === "High" && newsPrefs.currencies[e.cur]; });
+  }
+  function fmtCountdown(ms){
+    var s = Math.max(0, Math.floor(ms / 1000));
+    var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+    if(d) return d + "d " + h + "h";
+    if(h) return h + "h " + String(m).padStart(2, "0") + "m";
+    return m + "m " + String(sec).padStart(2, "0") + "s";
+  }
+  function eventWhen(e){
+    var d = keyDate(nyKey(e.t));
+    return DOW_SHORT[d.getUTCDay()] + " " + nyHM(e.t) + " NY \u00b7 " + localTimeFmt.format(new Date(e.t)) + " local";
+  }
+  function namesAt(list){ return list.map(function(e){ return e.cur + " " + e.title; }).join(", "); }
+
+  function updateNewsBanner(){
+    var el = document.getElementById("newsBanner");
+    if(!el) return;
+    var now = Date.now();
+    var win = NEWS_WINDOW_MIN * 60000;
+    if(!newsPrefs.feedUrl || !newsState.events.length){
+      el.style.display = "none";
+      return;
+    }
+    el.style.display = "";
+    var reds = redFolders();
+    var active = reds.filter(function(e){ return now >= e.t - win && now <= e.t + win; });
+    if(active.length){
+      var clearAt = Math.max.apply(null, active.map(function(e){ return e.t; })) + win;
+      el.className = "news-banner alert";
+      el.innerHTML = '<span class="lead">\u26a0 News window \u2014 no new trades (R2).</span> ' +
+        escapeHtml(namesAt(active)) + ' at ' + nyHM(active[0].t) + ' NY.' +
+        '<span class="sub">Clear in <span class="countdown">' + fmtCountdown(clearAt - now) + '</span> (' +
+        nyHM(clearAt) + ' NY \u00b7 ' + localTimeFmt.format(new Date(clearAt)) + ' local)</span>';
+      return;
+    }
+    var next = reds.filter(function(e){ return e.t > now; })[0];
+    if(!next){
+      el.className = "news-banner clear";
+      el.innerHTML = '<span class="lead">No more red-folder USD / EUR events this week.</span>';
+      return;
+    }
+    var group = reds.filter(function(e){ return e.t === next.t; });
+    var soon = next.t - now <= 2 * 3600000;
+    el.className = "news-banner " + (soon ? "soon" : "clear");
+    el.innerHTML = '<span class="lead">Next red-folder:</span> ' + escapeHtml(namesAt(group)) +
+      ' \u2014 in <span class="countdown">' + fmtCountdown(next.t - now) + '</span>' +
+      '<span class="sub">' + escapeHtml(eventWhen(next)) + ' \u00b7 no trades from ' +
+      nyHM(next.t - win) + ' to ' + nyHM(next.t + win) + ' NY</span>';
+  }
+
+  function renderNewsDays(){
+    var wrap = document.getElementById("newsDays");
+    var keys = newsWeekKeys();
+    var todayKey = nyKey(Date.now());
+    if(!newsState.day || keys.indexOf(newsState.day) === -1){
+      newsState.day = keys.indexOf(todayKey) > -1 ? todayKey : keys[0];
+    }
+    wrap.innerHTML = "";
+    keys.forEach(function(k){
+      var reds = newsState.events.filter(function(e){ return e.impact === "High" && newsPrefs.currencies[e.cur] && nyKey(e.t) === k; }).length;
+      var b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", k === newsState.day ? "true" : "false");
+      b.className = "news-day" + (k === newsState.day ? " active" : "") + (k === todayKey ? " today" : "");
+      b.innerHTML = escapeHtml(dayLabel(k)) + (reds ? '<span class="hi" title="' + reds + ' high-impact">' + reds + "</span>" : "");
+      b.addEventListener("click", function(){ newsState.day = k; renderNewsDays(); renderNewsList(); });
+      wrap.appendChild(b);
+    });
+    var first = keyDate(keys[0]), last = keyDate(keys[4]);
+    document.getElementById("newsWeekLabel").textContent = "USD \u00b7 EUR \u00b7 " +
+      MON_SHORT[first.getUTCMonth()] + " " + first.getUTCDate() + "\u2013" +
+      (first.getUTCMonth() !== last.getUTCMonth() ? MON_SHORT[last.getUTCMonth()] + " " : "") + last.getUTCDate();
+  }
+
+  function renderNewsFilters(){
+    var wrap = document.getElementById("newsFilters");
+    wrap.innerHTML = "";
+    function chip(label, on, swClass, onClick){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "news-chip" + (on ? " on" : "");
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.innerHTML = (swClass ? '<span class="sw ' + swClass + '"></span>' : "") + escapeHtml(label);
+      b.addEventListener("click", onClick);
+      wrap.appendChild(b);
+    }
+    NEWS_CURRENCIES.forEach(function(c){
+      chip(c, newsPrefs.currencies[c], "", function(){
+        newsPrefs.currencies[c] = !newsPrefs.currencies[c]; saveNewsPrefs(); renderNews();
+      });
+    });
+    NEWS_IMPACTS.forEach(function(imp){
+      chip(imp, newsPrefs.impacts[imp], "imp-" + imp, function(){
+        newsPrefs.impacts[imp] = !newsPrefs.impacts[imp]; saveNewsPrefs(); renderNews();
+      });
+    });
+  }
+
+  function renderNewsList(){
+    var wrap = document.getElementById("newsList");
+    var now = Date.now();
+    var win = NEWS_WINDOW_MIN * 60000;
+    var items = newsState.events.filter(function(e){ return nyKey(e.t) === newsState.day && newsVisible(e); });
+    if(!items.length){
+      wrap.innerHTML = '<div class="empty-state">' + (newsState.events.length
+        ? "No USD / EUR events match your filters on this day."
+        : (newsState.loading ? "Loading\u2026" : "No events loaded yet.")) + "</div>";
+      return;
+    }
+    var nextT = null;
+    items.forEach(function(e){ if(nextT === null && e.t > now) nextT = e.t; });
+    wrap.innerHTML = items.map(function(e){
+      var cls = "news-row";
+      if(e.impact === "High" && now >= e.t - win && now <= e.t + win) cls += " live";
+      else if(e.t + 60000 < now) cls += " past";
+      else if(e.t === nextT) cls += " next";
+      var allDay = e.impact === "Holiday";
+      var vals = "";
+      if(e.forecast) vals += "<span>Fcst <b>" + escapeHtml(e.forecast) + "</b></span>";
+      if(e.previous) vals += "<span>Prev <b>" + escapeHtml(e.previous) + "</b></span>";
+      return '<div class="' + cls + '">' +
+        '<div class="news-time"><span class="ny">' + (allDay ? "All day" : nyHM(e.t)) + '</span>' +
+          (allDay ? "" : '<span class="local">' + localTimeFmt.format(new Date(e.t)) + " local</span>") + "</div>" +
+        '<span class="news-cur ' + e.cur.toLowerCase() + '">' + e.cur + "</span>" +
+        '<div class="news-title"><span class="news-impact imp-' + e.impact + '" title="' + e.impact + ' impact"></span>' +
+          '<span class="txt">' + escapeHtml(e.title) + "</span></div>" +
+        '<div class="news-vals">' + vals + "</div>" +
+      "</div>";
+    }).join("");
+  }
+
+  function renderNewsStatus(){
+    var el = document.getElementById("newsStatus");
+    if(!el) return;
+    var text = "Live calendar by TradingView \u00b7 times shown in your local time zone.";
+    if(newsPrefs.feedUrl){
+      if(newsState.loading) text += " R2 banner: updating\u2026";
+      else if(newsState.fetchedAt) text += " R2 banner: updated " + localStampFmt.format(new Date(newsState.fetchedAt)) + " via your GitHub feed.";
+      if(newsState.error) text += " " + newsState.error + (newsState.events.length ? " Using the last saved copy." : "");
+    }
+    el.textContent = text;
+    el.style.color = newsState.error ? "var(--loss)" : "";
+  }
+
+  // ---------- Killzone reminder ----------
+  // Trade only inside the ICT killzones (rule R1), Mon-Fri, New York time:
+  //   London open   02:00-05:00 NY
+  //   New York open 07:00-10:00 NY
+  // Converted to the viewer's local time for the actual dates, so daylight
+  // saving changes (UK 25 Oct, US 1 Nov 2026) are handled automatically.
+  var KILLZONES = [
+    { id: "london", name: "London open",   start: 2 * 60, end: 5 * 60 },
+    { id: "ny",     name: "New York open", start: 7 * 60, end: 10 * 60 }
+  ];
+  var kzCache = { minute: -1, sessions: [] };
+
+  // The instant (ms) for a New York wall-clock time on a given NY date key.
+  function nyWallToMs(key, mins){
+    var a = key.split("-");
+    var target = Date.UTC(+a[0], +a[1] - 1, +a[2], Math.floor(mins / 60), mins % 60);
+    var guess = target;
+    for(var i = 0; i < 3; i++){
+      var p = nyParts(guess);
+      var shown = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
+      if(shown === target) break;
+      guess += target - shown;
+    }
+    return guess;
+  }
+  // Killzone sessions from today through the next 7 days (weekdays only).
+  function kzSessions(){
+    var m = Math.floor(Date.now() / 60000);
+    if(kzCache.minute === m) return kzCache.sessions;
+    var today = keyDate(nyKey(Date.now()));
+    var list = [];
+    for(var d = 0; d <= 7; d++){
+      var day = new Date(today.getTime() + d * 86400000);
+      var dow = day.getUTCDay();
+      if(dow === 0 || dow === 6) continue;
+      var key = day.toISOString().slice(0, 10);
+      KILLZONES.forEach(function(kz){
+        list.push({ kz: kz, key: key, start: nyWallToMs(key, kz.start), end: nyWallToMs(key, kz.end) });
+      });
+    }
+    kzCache = { minute: m, sessions: list };
+    return list;
+  }
+  function hm(mins){ return String(Math.floor(mins / 60)).padStart(2, "0") + ":" + String(mins % 60).padStart(2, "0"); }
+  function localHM(ms){ return localTimeFmt.format(new Date(ms)); }
+
+  function renderKillzones(){
+    var el = document.getElementById("kzStrip");
+    if(!el) return;
+    var now = Date.now();
+    var sessions = kzSessions();
+    var live = sessions.filter(function(x){ return now >= x.start && now < x.end; })[0] || null;
+    var next = sessions.filter(function(x){ return x.start > now; })[0] || null;
+
+    // Pills show each killzone for the current or next trading day.
+    var refKey = live ? live.key : (next ? next.key : nyKey(now));
+    var html = KILLZONES.map(function(kz){
+      var x = sessions.filter(function(s2){ return s2.kz.id === kz.id && s2.key === refKey; })[0];
+      var isLive = live && live.kz.id === kz.id;
+      var localStr = x ? localHM(x.start) + "\u2013" + localHM(x.end) + " your time" : "";
+      return '<div class="kz-pill' + (isLive ? " live" : "") + '">' +
+        '<span class="kz-name"><span class="kz-dot"></span>' + kz.name + ' killzone' + (isLive ? " \u00b7 LIVE" : "") + '</span>' +
+        '<span class="kz-times">' + hm(kz.start) + "\u2013" + hm(kz.end) + " NY \u00b7 " + localStr + "</span>" +
+      "</div>";
+    }).join("");
+
+    var status;
+    if(live){
+      status = '<div class="kz-status live"><b>\u25cf ' + live.kz.name + ' killzone is live</b> \u2014 ends in <span class="countdown">' +
+        fmtCountdown(live.end - now) + '</span>. One trade max this session; check the news window before entering.</div>';
+    } else if(next){
+      var nextDay = keyDate(next.key);
+      var sameDay = next.key === nyKey(now);
+      var when = (sameDay ? "" : DOW_SHORT[nextDay.getUTCDay()] + " ") + localHM(next.start) + " your time";
+      var dow = keyDate(nyKey(now)).getUTCDay();
+      var lead = (dow === 0 || dow === 6) ? "Weekend \u2014 no killzones." : "Outside killzones \u2014 no new trades.";
+      status = '<div class="kz-status idle"><b>' + lead + '</b> Next: ' + next.kz.name + ' at ' + when +
+        ' (in <span class="countdown">' + fmtCountdown(next.start - now) + '</span>).</div>';
+    } else {
+      status = "";
+    }
+    el.innerHTML = html + status;
+  }
+
+  function renderNews(){
+    renderNewsStatus();
+    updateNewsBanner();
+    renderKillzones();
+  }
+
+  // Called every second by the clock: countdown each second, list each minute.
+  function tickNews(){
+    updateNewsBanner();
+    renderKillzones();
+    var m = Math.floor(Date.now() / 60000);
+    if(m !== newsLastMinute){
+      newsLastMinute = m;
+      if(document.getElementById("newsList")) renderNewsList();
+      if(newsPrefs.feedUrl) fetchNews(false);
+    }
+  }
+
+  renderTvFilters();
+  renderTvCalendar();
+  var elNewsFeedUrl = document.getElementById("newsFeedUrl");
+  elNewsFeedUrl.value = newsPrefs.feedUrl || "";
+  if(!newsPrefs.feedUrl) document.getElementById("newsFeedSettings").open = false;
+  function forceNewsReload(){ newsState.fetchedAt = 0; newsState.note = null; fetchNews(false); }
+  document.getElementById("newsFeedSave").addEventListener("click", function(){
+    var v = elNewsFeedUrl.value.trim();
+    if(v && !/^https:\/\//i.test(v)){ alert("The feed URL should start with https://"); elNewsFeedUrl.focus(); return; }
+    newsPrefs.feedUrl = v || "";
+    saveNewsPrefs();
+    forceNewsReload();
+  });
+  document.getElementById("newsFeedClear").addEventListener("click", function(){
+    elNewsFeedUrl.value = "";
+    newsPrefs.feedUrl = "";
+    saveNewsPrefs();
+    forceNewsReload();
+  });
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) fetchNews(false); });
+  loadNewsCache();
+  renderNews();
+  fetchNews(false);
+  setInterval(function(){ fetchNews(false); }, 5 * 60 * 1000);
 
   // ---------- Render all ----------
   function renderAll(){
