@@ -616,6 +616,56 @@
   #newsCard.collapsed .kz-strip{margin-bottom:0;}
   #newsCard .card-head{margin-bottom:10px;}
 
+  /* View tabs (Journal / Statistics) */
+  .brand{flex-wrap:wrap;align-items:center;gap:10px 16px;}
+  .view-tabs{display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);}
+  .view-tab{border:none;background:transparent;padding:5px 14px;font-size:12.5px;color:var(--text-muted);border-radius:6px;}
+  .view-tab:hover{color:var(--text);}
+  .view-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(20,18,10,0.10);}
+
+  /* Statistics view */
+  .st-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;margin:0 2px 16px;}
+  .st-head h2{font-size:22px;}
+  .st-head .eyebrow{margin:0;}
+  .st-hero{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:20px;}
+  @media (max-width:1080px){ .st-hero{grid-template-columns:repeat(3,minmax(0,1fr));} }
+  @media (max-width:480px){ .st-hero{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .st-hero .stat .value{font-size:20px;}
+  .st-hero .stat .sub{font-size:11px;color:var(--text-muted);margin-top:3px;}
+  .kv-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:36px;}
+  @media (max-width:720px){ .kv-grid{grid-template-columns:1fr;} }
+  .kv-group{padding:8px 0;border-top:1px dashed var(--border);}
+  .kv-col > .kv-group:first-child{border-top:none;padding-top:0;}
+  @media (max-width:720px){ .kv-col + .kv-col > .kv-group:first-child{border-top:1px dashed var(--border);padding-top:8px;} }
+  .kv{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:4px 0;font-size:13px;}
+  .kv .k{color:var(--text-muted);}
+  .kv .v{font-family:'IBM Plex Mono',monospace;font-weight:600;text-align:right;white-space:nowrap;}
+  .up{color:var(--gain);} .down{color:var(--loss);}
+  .st-2col{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+  .st-2col > .card{margin-bottom:0;}
+  @media (max-width:880px){ .st-2col{grid-template-columns:1fr;} }
+  .st-section{margin-bottom:20px;}
+  .st-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .st-table th{white-space:nowrap;}
+  .st-table td{vertical-align:middle;}
+  .st-table .num{text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap;}
+  .st-table th.num{text-align:right;}
+  .st-table .barcell{width:34%;min-width:110px;}
+  .bar-track{height:10px;border-radius:3px;background:var(--surface-2);overflow:hidden;}
+  .bar-fill{height:100%;background:var(--amber);border-radius:3px;}
+  .split{display:flex;height:10px;border-radius:3px;overflow:hidden;background:var(--surface-2);}
+  .split .buy{background:var(--gain);} .split .sell{background:var(--loss);}
+  .split-label{font-size:10.5px;color:var(--text-muted);margin-top:3px;font-family:'IBM Plex Mono',monospace;}
+  .div-bar{display:grid;grid-template-columns:1fr 1fr;height:10px;}
+  .div-bar .neg{display:flex;justify-content:flex-end;border-right:1px solid var(--text-muted);}
+  .div-bar .neg span{background:var(--loss);border-radius:3px 0 0 3px;}
+  .div-bar .pos span{display:block;height:100%;background:var(--gain);border-radius:0 3px 3px 0;}
+  .div-bar span{display:block;height:100%;}
+  .st-note{font-size:11.5px;color:var(--text-muted);line-height:1.5;margin:10px 0 0;}
+  .st-sub{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin:14px 0 6px;}
+  .st-sub:first-child{margin-top:0;}
+  .st-scroll{overflow-x:auto;}
+
   /* Section heading above a group of cards (e.g. Account management) */
   .section-heading{
     display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;
@@ -652,6 +702,10 @@
   <div class="tape-top">
     <div class="brand">
       <h1>Funded Trading Journal</h1>
+      <nav class="view-tabs" role="tablist" aria-label="View">
+        <button type="button" class="view-tab" data-view="journal" role="tab">Journal</button>
+        <button type="button" class="view-tab" data-view="stats" role="tab">Statistics</button>
+      </nav>
     </div>
     <div class="header-right">
       <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"></button>
@@ -674,6 +728,7 @@
 </div>
 
 <main>
+<div id="viewJournal">
 
   <div class="card" id="equityCard">
     <div class="card-head">
@@ -1005,6 +1060,10 @@
 
     </div>
   </div>
+</div>
+<div id="viewStats" hidden>
+  <div id="statsRoot"></div>
+</div>
 </main>
 
 <footer>Stored locally in this browser only. Export a backup now and then. · Not financial advice.</footer>
@@ -3476,7 +3535,283 @@
   renderKillzones();
 
   // ---------- Render all ----------
+  // ---------- Statistics view ----------
+  // An MQL5-style report built from closed trades, following the Account
+  // filter at the top. Trades are ordered by date (and logging order within
+  // a day); P&L values are net of fees, as stored.
+  var VIEW_KEY = "tapeJournalView_v1";
+  var currentView = (function(){ try{ return localStorage.getItem(VIEW_KEY) === "stats" ? "stats" : "journal"; }catch(e){ return "journal"; } })();
+  var WEEKDAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  function setView(v, keepScroll){
+    currentView = v;
+    try{ localStorage.setItem(VIEW_KEY, v); }catch(e){}
+    document.getElementById("viewJournal").hidden = v !== "journal";
+    document.getElementById("viewStats").hidden = v !== "stats";
+    Array.prototype.forEach.call(document.querySelectorAll(".view-tab"), function(b){
+      var on = b.dataset.view === v;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    if(v === "stats") renderStatsView();
+    else renderEquityChart(); // it measures its container, which was hidden
+    if(!keepScroll) window.scrollTo(0, 0);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".view-tab"), function(b){
+    b.addEventListener("click", function(){ if(currentView !== b.dataset.view) setView(b.dataset.view); });
+  });
+
+  function fmtPct(n, d){ return (n > 0 ? "+" : "") + n.toFixed(d == null ? 2 : d) + "%"; }
+  function sMoney(n){ return (n > 0 ? "+" : "") + money(n); }
+  function cls(n){ return n > 0 ? "up" : (n < 0 ? "down" : ""); }
+  function share(a, b){ return b ? (a / b * 100).toFixed(1) + "%" : "\u2014"; }
+
+  function modelOf(t){
+    if(!t.checklist || !Object.keys(t.checklist).length) return "none";
+    return inferChecklistModel(t);
+  }
+  // true / false when the checklist was used on this trade, null otherwise.
+  function requiredMet(t){
+    if(modelOf(t) === "none") return null;
+    if(!Object.keys(t.checklist).some(function(k){ return t.checklist[k]; })) return null;
+    var model = CHECKLIST_MODELS[inferChecklistModel(t)];
+    var ctx = { symbol: String(t.symbol || "").toUpperCase(), side: t.side };
+    var req = model.items.filter(function(it){ return itemVisible(it, ctx) && itemRequired(it, ctx); });
+    return req.every(function(it){ return !!t.checklist[it.id]; });
+  }
+  function summarize(list){
+    var n = list.length, w = 0, net = 0;
+    list.forEach(function(t){ net += t.pnl; if(t.pnl > 0) w++; });
+    return { n: n, wins: w, net: net, winRate: n ? w / n * 100 : null, avg: n ? net / n : null };
+  }
+
+  function computeStatistics(){
+    var all = filteredTrades();
+    var closed = all.filter(isClosed).slice().sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    var start = computeStartingBalance();
+    var st = { start: start, closed: closed, n: closed.length, open: all.length - closed.length };
+    if(!closed.length) return st;
+
+    var eq = start, peak = start, minEq = start, maxDD = 0, maxDDPct = 0;
+    var gp = 0, gl = 0, wins = 0, losses = 0, best = -Infinity, worst = Infinity, fees = 0, returns = [];
+    var curType = null, curCount = 0, curSum = 0;
+    var mcw = { count: 0, sum: 0 }, mcp = { count: 0, sum: 0 }, mcl = { count: 0, sum: 0 }, mcls = { count: 0, sum: 0 };
+    var months = {}, monthOrder = [];
+    closed.forEach(function(t){
+      var mk = t.date.slice(0, 7);
+      if(!months[mk]){ months[mk] = { key: mk, startEq: eq, trades: [] }; monthOrder.push(mk); }
+      months[mk].trades.push(t);
+      var before = eq;
+      eq += t.pnl;
+      if(before > 0) returns.push(t.pnl / before);
+      if(eq > peak) peak = eq;
+      if(eq < minEq) minEq = eq;
+      var dd = peak - eq;
+      if(dd > maxDD) maxDD = dd;
+      var ddp = peak > 0 ? dd / peak * 100 : 0;
+      if(ddp > maxDDPct) maxDDPct = ddp;
+      if(t.pnl > 0){ gp += t.pnl; wins++; } else if(t.pnl < 0){ gl += t.pnl; losses++; }
+      if(t.pnl > best) best = t.pnl;
+      if(t.pnl < worst) worst = t.pnl;
+      fees += (typeof t.fee === "number" && !isNaN(t.fee)) ? t.fee : 0;
+      var type = t.pnl > 0 ? "W" : (t.pnl < 0 ? "L" : null);
+      if(type && type === curType){ curCount++; curSum += t.pnl; }
+      else if(type){ curType = type; curCount = 1; curSum = t.pnl; }
+      else { curType = null; curCount = 0; curSum = 0; }
+      if(curType === "W"){
+        if(curCount > mcw.count || (curCount === mcw.count && curSum > mcw.sum)) mcw = { count: curCount, sum: curSum };
+        if(curSum > mcp.sum) mcp = { count: curCount, sum: curSum };
+      } else if(curType === "L"){
+        if(curCount > mcl.count || (curCount === mcl.count && curSum < mcl.sum)) mcl = { count: curCount, sum: curSum };
+        if(curSum < mcls.sum) mcls = { count: curCount, sum: curSum };
+      }
+    });
+    var net = gp + gl;
+    var mean = returns.reduce(function(a, b){ return a + b; }, 0) / (returns.length || 1);
+    var sd = returns.length > 1 ? Math.sqrt(returns.reduce(function(a, r){ return a + (r - mean) * (r - mean); }, 0) / (returns.length - 1)) : 0;
+
+    var days = {};
+    closed.forEach(function(t){ days[t.date] = true; });
+    var first = closed[0].date, last = closed[closed.length - 1].date;
+    var spanDays = Math.round((parseDate(last) - parseDate(first)) / 86400000) + 1;
+    var weeks = Math.max(1, spanDays / 7);
+
+    var monthsList = monthOrder.map(function(k){
+      var m = months[k], sm = summarize(m.trades);
+      sm.key = k; sm.ret = m.startEq > 0 ? sm.net / m.startEq * 100 : null;
+      return sm;
+    });
+    var monthRets = monthsList.filter(function(m){ return m.ret !== null; }).map(function(m){ return m.ret; });
+
+    var bySym = {};
+    closed.forEach(function(t){
+      var k = String(t.symbol || "?").toUpperCase();
+      if(!bySym[k]) bySym[k] = { sym: k, list: [], buys: 0, sells: 0 };
+      bySym[k].list.push(t);
+      if(t.side === "long") bySym[k].buys++; else bySym[k].sells++;
+    });
+    var symbols = Object.keys(bySym).map(function(k){
+      var x = bySym[k], sm = summarize(x.list);
+      sm.sym = k; sm.buys = x.buys; sm.sells = x.sells; return sm;
+    }).sort(function(a, b){ return b.n - a.n || b.net - a.net; });
+
+    var weekdays = [1, 2, 3, 4, 5, 6, 0].map(function(d){
+      var sm = summarize(closed.filter(function(t){ return parseDate(t.date).getDay() === d; }));
+      sm.label = WEEKDAY_SHORT[d]; return sm;
+    }).filter(function(w, i){ return i < 5 || w.n; });
+
+    var longs = closed.filter(function(t){ return t.side === "long"; });
+    var shorts = closed.filter(function(t){ return t.side !== "long"; });
+
+    st.eq = eq; st.net = net; st.gp = gp; st.gl = gl; st.wins = wins; st.losses = losses;
+    st.best = best; st.worst = worst; st.fees = fees;
+    st.pf = gl < 0 ? gp / -gl : (gp > 0 ? Infinity : null);
+    st.payoff = net / closed.length;
+    st.avgWin = wins ? gp / wins : null; st.avgLoss = losses ? gl / losses : null;
+    st.mcw = mcw; st.mcp = mcp; st.mcl = mcl; st.mcls = mcls;
+    st.sharpe = sd > 0 ? mean / sd : null;
+    st.maxDD = maxDD; st.maxDDPct = maxDDPct;
+    st.absDD = Math.max(0, start - minEq);
+    st.curDD = peak - eq; st.curDDPct = peak > 0 ? (peak - eq) / peak * 100 : 0;
+    st.recovery = maxDD > 0 ? net / maxDD : null;
+    st.growth = start > 0 ? net / start * 100 : null;
+    st.tradingDays = Object.keys(days).length; st.first = first; st.last = last;
+    st.perWeek = closed.length / weeks;
+    st.longs = summarize(longs); st.shorts = summarize(shorts);
+    st.months = monthsList;
+    st.avgMonth = monthRets.length ? monthRets.reduce(function(a, b){ return a + b; }, 0) / monthRets.length : null;
+    st.symbols = symbols; st.weekdays = weekdays;
+    st.models = [
+      { label: "Model V2", list: closed.filter(function(t){ return modelOf(t) === "topdown"; }) },
+      { label: "Model V1 (Deprecated)", list: closed.filter(function(t){ return modelOf(t) === "legacy"; }) },
+      { label: "No checklist", list: closed.filter(function(t){ return modelOf(t) === "none"; }) }
+    ];
+    st.compliance = [
+      { label: "All required items met", list: closed.filter(function(t){ return requiredMet(t) === true; }) },
+      { label: "Required items missing", list: closed.filter(function(t){ return requiredMet(t) === false; }) },
+      { label: "Checklist not used", list: closed.filter(function(t){ return requiredMet(t) === null; }) }
+    ];
+    st.sessions = [
+      { label: "Off-session (outside killzones)", list: closed.filter(function(t){ return t.offSession; }) },
+      { label: "Not flagged", list: closed.filter(function(t){ return !t.offSession; }) }
+    ];
+    return st;
+  }
+
+  function kv(k, v, c){ return '<div class="kv"><span class="k">' + k + '</span><span class="v ' + (c || "") + '">' + v + "</span></div>"; }
+  function divBar(v, maxAbs){
+    var w = maxAbs > 0 ? Math.min(100, Math.abs(v) / maxAbs * 100) : 0;
+    return '<div class="div-bar"><div class="neg">' + (v < 0 ? '<span style="width:' + w + '%"></span>' : "") +
+      '</div><div class="pos">' + (v > 0 ? '<span style="width:' + w + '%"></span>' : "") + "</div></div>";
+  }
+  function groupTable(groups){
+    var rows = groups.map(function(g){ var sm = summarize(g.list); sm.label = g.label; return sm; });
+    var maxAbs = Math.max.apply(null, rows.map(function(r){ return Math.abs(r.net); }).concat([0]));
+    return '<div class="st-scroll"><table class="st-table"><thead><tr><th></th><th class="num">Trades</th><th class="num">Win rate</th><th class="barcell">Net P&amp;L</th><th class="num"></th><th class="num">Avg / trade</th></tr></thead><tbody>' +
+      rows.map(function(r){
+        return "<tr><td>" + escapeHtml(r.label) + '</td><td class="num">' + r.n + '</td><td class="num">' +
+          (r.winRate === null ? "\u2014" : r.winRate.toFixed(0) + "%") + '</td><td class="barcell">' + (r.n ? divBar(r.net, maxAbs) : "") +
+          '</td><td class="num ' + cls(r.net) + '">' + (r.n ? sMoney(r.net) : "\u2014") + '</td><td class="num ' + cls(r.avg || 0) + '">' +
+          (r.n ? sMoney(r.avg) : "\u2014") + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  function monthLabel(k){ var a = k.split("-"); return MONTH[+a[1] - 1].slice(0, 3) + " " + a[0]; }
+
+  function renderStatsView(){
+    var root = document.getElementById("statsRoot");
+    if(!root) return;
+    var st = computeStatistics();
+    var accLabel = activeFirmFilter === "All" ? "All accounts" : (accountById(activeFirmFilter) ? accountById(activeFirmFilter).name : "\u2014");
+    var head = '<div class="st-head"><h2>Statistics</h2><span class="eyebrow">' + escapeHtml(accLabel) +
+      (st.n ? " \u00b7 " + fmtShortDate(st.first) + " \u2013 " + fmtShortDate(st.last) + " " + st.last.slice(0, 4) : "") + "</span></div>";
+    if(!st.n){
+      root.innerHTML = head + '<div class="card"><div class="empty-state">No closed trades for this account yet. Statistics appear once trades have an exit price.</div></div>';
+      return;
+    }
+    var pfStr = st.pf === null ? "\u2014" : (st.pf === Infinity ? "\u221e" : st.pf.toFixed(2));
+    var hero = '<div class="st-hero">' +
+      '<div class="stat"><div class="label">Growth</div><div class="value ' + cls(st.growth || 0) + '">' + (st.growth === null ? "\u2014" : fmtPct(st.growth)) + '</div><div class="sub">since first trade</div></div>' +
+      '<div class="stat"><div class="label">Net profit</div><div class="value ' + cls(st.net) + '">' + sMoney(st.net) + '</div><div class="sub">after fees</div></div>' +
+      '<div class="stat"><div class="label">Equity</div><div class="value">' + money(st.eq) + '</div><div class="sub">closed trades only</div></div>' +
+      '<div class="stat"><div class="label">Initial deposit</div><div class="value">' + money(st.start) + '</div><div class="sub">starting balance</div></div>' +
+      '<div class="stat"><div class="label">Win rate</div><div class="value">' + (st.wins / st.n * 100).toFixed(1) + '%</div><div class="sub">' + st.wins + " of " + st.n + " trades</div></div>" +
+      '<div class="stat"><div class="label">Profit factor</div><div class="value ' + (st.pf !== null && st.pf >= 1 ? "up" : "down") + '">' + pfStr + '</div><div class="sub">gross profit \u00f7 gross loss</div></div>' +
+    "</div>";
+
+    var left = '<div class="kv-col">' +
+      '<div class="kv-group">' + kv("Trades", st.n) + kv("Profit trades", st.wins + " (" + share(st.wins, st.n) + ")") + kv("Loss trades", st.losses + " (" + share(st.losses, st.n) + ")") + "</div>" +
+      '<div class="kv-group">' + kv("Best trade", sMoney(st.best), cls(st.best)) + kv("Worst trade", sMoney(st.worst), cls(st.worst)) + "</div>" +
+      '<div class="kv-group">' + kv("Gross profit", sMoney(st.gp), "up") + kv("Gross loss", sMoney(st.gl), st.gl < 0 ? "down" : "") + "</div>" +
+      '<div class="kv-group">' + kv("Maximum consecutive wins", st.mcw.count + " (" + sMoney(st.mcw.sum) + ")") + kv("Maximal consecutive profit", sMoney(st.mcp.sum) + " (" + st.mcp.count + ")") + "</div>" +
+      '<div class="kv-group">' + kv("Sharpe ratio", st.sharpe === null ? "\u2014" : st.sharpe.toFixed(2)) + kv("Trading days", st.tradingDays) + kv("Trades per week", st.perWeek.toFixed(1)) + "</div>" +
+    "</div>";
+    var right = '<div class="kv-col">' +
+      '<div class="kv-group">' + kv("Recovery factor", st.recovery === null ? "\u2014" : st.recovery.toFixed(2)) +
+        kv("Long trades", st.longs.n + " (" + share(st.longs.n, st.n) + ")" + (st.longs.n ? " \u00b7 win " + st.longs.winRate.toFixed(0) + "%" : "")) +
+        kv("Short trades", st.shorts.n + " (" + share(st.shorts.n, st.n) + ")" + (st.shorts.n ? " \u00b7 win " + st.shorts.winRate.toFixed(0) + "%" : "")) + "</div>" +
+      '<div class="kv-group">' + kv("Profit factor", pfStr) + kv("Expected payoff", sMoney(st.payoff), cls(st.payoff)) + "</div>" +
+      '<div class="kv-group">' + kv("Average profit", st.avgWin === null ? "\u2014" : sMoney(st.avgWin), "up") + kv("Average loss", st.avgLoss === null ? "\u2014" : sMoney(st.avgLoss), "down") + "</div>" +
+      '<div class="kv-group">' + kv("Maximum consecutive losses", st.mcl.count + " (" + sMoney(st.mcl.sum) + ")") + kv("Maximal consecutive loss", sMoney(st.mcls.sum) + " (" + st.mcls.count + ")") + "</div>" +
+      '<div class="kv-group">' + kv("Monthly growth (average)", st.avgMonth === null ? "\u2014" : fmtPct(st.avgMonth), cls(st.avgMonth || 0)) +
+        kv("Fees paid", money(st.fees)) + kv("Open trades", st.open) + "</div>" +
+    "</div>";
+
+    var tradeStats = '<div class="card st-section"><div class="card-head"><h2>Trade statistics</h2></div><div class="kv-grid">' + left + right + "</div>" +
+      '<p class="st-note">Average profit vs average loss is your real risk:reward. With a ' + (st.wins / st.n * 100).toFixed(0) +
+      '% win rate you need an average win of at least ' + (st.avgLoss !== null && st.wins ? money(Math.abs(st.avgLoss) * st.losses / st.wins) : "\u2014") + ' to break even.</p></div>';
+
+    var dd = '<div class="card st-section"><div class="card-head"><h2>Drawdown</h2></div><div class="kv-grid"><div class="kv-col"><div class="kv-group">' +
+      kv("Absolute drawdown", st.absDD > 0 ? "-" + money(st.absDD).replace("$", "$") : money(0), st.absDD > 0 ? "down" : "") +
+      kv("Maximal drawdown", (st.maxDD > 0 ? "-" : "") + money(st.maxDD) + " (" + st.maxDDPct.toFixed(2) + "%)", st.maxDD > 0 ? "down" : "") +
+      '</div></div><div class="kv-col"><div class="kv-group">' +
+      kv("Current drawdown from peak", (st.curDD > 0 ? "-" : "") + money(st.curDD) + " (" + st.curDDPct.toFixed(2) + "%)", st.curDD > 0 ? "down" : "") +
+      kv("Recovery factor", st.recovery === null ? "\u2014" : st.recovery.toFixed(2)) +
+      '</div></div></div><p class="st-note">Absolute: how far equity fell below your starting balance. Maximal: the largest drop from any peak (what prop firms usually check). Recovery factor: net profit \u00f7 maximal drawdown.</p></div>';
+
+    var maxDeals = Math.max.apply(null, st.symbols.map(function(x){ return x.n; }));
+    var maxSymAbs = Math.max.apply(null, st.symbols.map(function(x){ return Math.abs(x.net); }).concat([0]));
+    var dist = '<div class="card st-section"><div class="card-head"><h2>Distribution by symbol</h2></div><div class="st-scroll"><table class="st-table"><thead><tr>' +
+      '<th>Symbol</th><th class="num">Deals</th><th class="barcell"></th><th class="barcell">Buy / Sell</th><th class="num">Win rate</th><th class="barcell">Net P&amp;L</th><th class="num"></th></tr></thead><tbody>' +
+      st.symbols.map(function(x){
+        var bw = x.n ? x.buys / x.n * 100 : 0;
+        return "<tr><td><strong>" + escapeHtml(x.sym) + '</strong></td><td class="num">' + x.n + '</td>' +
+          '<td class="barcell"><div class="bar-track"><div class="bar-fill" style="width:' + (x.n / maxDeals * 100) + '%"></div></div></td>' +
+          '<td class="barcell"><div class="split"><span class="buy" style="width:' + bw + '%"></span><span class="sell" style="width:' + (100 - bw) + '%"></span></div>' +
+          '<div class="split-label">' + x.buys + " buy \u00b7 " + x.sells + " sell</div></td>" +
+          '<td class="num">' + x.winRate.toFixed(0) + '%</td><td class="barcell">' + divBar(x.net, maxSymAbs) + '</td><td class="num ' + cls(x.net) + '">' + sMoney(x.net) + "</td></tr>";
+      }).join("") + "</tbody></table></div></div>";
+
+    var maxMonAbs = Math.max.apply(null, st.months.map(function(m){ return Math.abs(m.net); }).concat([0]));
+    var monthly = '<div class="card"><div class="card-head"><h2>Monthly</h2></div><div class="st-scroll"><table class="st-table"><thead><tr>' +
+      '<th>Month</th><th class="num">Trades</th><th class="num">Win</th><th class="barcell">Net P&amp;L</th><th class="num"></th><th class="num">Return</th></tr></thead><tbody>' +
+      st.months.slice().reverse().map(function(m){
+        return "<tr><td>" + monthLabel(m.key) + '</td><td class="num">' + m.n + '</td><td class="num">' + m.winRate.toFixed(0) + '%</td><td class="barcell">' +
+          divBar(m.net, maxMonAbs) + '</td><td class="num ' + cls(m.net) + '">' + sMoney(m.net) + '</td><td class="num ' + cls(m.ret || 0) + '">' +
+          (m.ret === null ? "\u2014" : fmtPct(m.ret)) + "</td></tr>";
+      }).join("") + "</tbody></table></div></div>";
+
+    var maxWdAbs = Math.max.apply(null, st.weekdays.map(function(w){ return Math.abs(w.net); }).concat([0]));
+    var weekday = '<div class="card"><div class="card-head"><h2>By weekday</h2></div><div class="st-scroll"><table class="st-table"><thead><tr>' +
+      '<th>Day</th><th class="num">Trades</th><th class="num">Win</th><th class="barcell">Net P&amp;L</th><th class="num"></th></tr></thead><tbody>' +
+      st.weekdays.map(function(w){
+        return "<tr><td>" + w.label + '</td><td class="num">' + w.n + '</td><td class="num">' + (w.winRate === null ? "\u2014" : w.winRate.toFixed(0) + "%") +
+          '</td><td class="barcell">' + (w.n ? divBar(w.net, maxWdAbs) : "") + '</td><td class="num ' + cls(w.net) + '">' + (w.n ? sMoney(w.net) : "\u2014") + "</td></tr>";
+      }).join("") + "</tbody></table></div></div>";
+
+    var discipline = '<div class="card st-section"><div class="card-head"><h2>Discipline</h2><span class="eyebrow">Do your rules pay?</span></div>' +
+      '<div class="st-sub">By checklist model</div>' + groupTable(st.models) +
+      '<div class="st-sub">Checklist followed?</div>' + groupTable(st.compliance) +
+      '<div class="st-sub">Session</div>' + groupTable(st.sessions) +
+      '<p class="st-note">\u201cChecklist followed\u201d uses the ticks saved on each trade: every required item for that trade\u2019s model, symbol and side. Off-session tagging started with the killzone check, so older trades show as \u201cNot flagged\u201d.</p></div>';
+
+    root.innerHTML = head + hero + tradeStats + '<div class="st-2col st-section">' +
+      '<div class="card" style="margin-bottom:0;">' + dd.replace('<div class="card st-section">', "").replace(/<\/div>$/, "") + "</div>" +
+      discipline.replace('<div class="card st-section">', '<div class="card">') + "</div>" +
+      dist + '<div class="st-2col st-section">' + monthly + weekday + "</div>";
+  }
+
   function renderAll(){
+    if(currentView === "stats") renderStatsView();
     renderDateLabel();
     renderLedger();
     renderReflection();
@@ -3499,6 +3834,7 @@
   renderChecklist();
   updateStorageUsage(JSON.stringify(data).length);
   renderAll();
+  setView(currentView, true);
 })();
 </script>
 </body>
