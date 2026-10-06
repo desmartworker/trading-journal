@@ -657,6 +657,16 @@
   .st-curve .base{stroke:var(--text-muted);stroke-width:1;stroke-dasharray:4 4;opacity:.6;}
   .st-curve.up .line{stroke:var(--gain);} .st-curve.up .area{fill:var(--gain);}
   .st-curve.down .line{stroke:var(--loss);} .st-curve.down .area{fill:var(--loss);}
+  .st-curve-empty{
+    height:220px;border:1px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;
+    background:repeating-linear-gradient(0deg, transparent 0 43px, var(--border) 43px 44px);
+  }
+  .st-curve-empty span{font-size:12px;color:var(--text-muted);background:var(--surface);padding:3px 10px;border-radius:20px;border:1px solid var(--border);}
+  .st-empty-val{color:var(--text-muted);}
+  .st-empty-notice{
+    font-size:12.5px;color:var(--text-muted);background:var(--surface-2);border:1px dashed var(--border);
+    border-radius:8px;padding:10px 14px;margin-bottom:16px;
+  }
   .st-curve-axis{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--text-muted);margin-top:4px;}
   .st-radar{width:100%;max-width:340px;height:auto;display:block;margin:0 auto;}
   .st-radar .ring{fill:none;stroke:var(--border);stroke-width:1;}
@@ -3938,27 +3948,31 @@
   }
 
   // Six-axis profile like MQL5's hexagon. Each axis is a 0-100% share.
+  var RADAR_LABELS = ["Profit trades", "Loss trades", "Trading activity", "Max drawdown", "Off-session", "Checklist met"];
   function radarChart(st){
-    var met = st.compliance[0].list.length, missing = st.compliance[1].list.length;
-    var offN = st.sessions[0].list.length;
-    var activity = st.tradingDays / weekdaysSince(st.first) * 100;
-    var axes = [
-      { label: "Profit trades", v: st.wins / st.n * 100 },
-      { label: "Loss trades", v: st.losses / st.n * 100 },
-      { label: "Trading activity", v: activity },
-      { label: "Max drawdown", v: st.maxDDPct },
-      { label: "Off-session", v: offN / st.n * 100 },
-      { label: "Checklist met", v: (met + missing) ? met / (met + missing) * 100 : null }
-    ];
+    var axes;
+    if(!st.n){
+      axes = RADAR_LABELS.map(function(l){ return { label: l, v: null }; });
+    } else {
+      var met = st.compliance[0].list.length, missing = st.compliance[1].list.length;
+      var offN = st.sessions[0].list.length;
+      var activity = st.tradingDays / weekdaysSince(st.first) * 100;
+      var vals = [st.wins / st.n * 100, st.losses / st.n * 100, activity, st.maxDDPct, offN / st.n * 100,
+        (met + missing) ? met / (met + missing) * 100 : null];
+      axes = RADAR_LABELS.map(function(l, i){ return { label: l, v: vals[i] }; });
+    }
+    var hasData = axes.some(function(a){ return a.v !== null; });
     var cx = 170, cy = 140, R = 88, n = axes.length;
     function pt(i, r){ var a = (-90 + i * 360 / n) * Math.PI / 180; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
     function poly(r){ return axes.map(function(_, i){ return pt(i, r).map(function(c){ return c.toFixed(1); }).join(","); }).join(" "); }
     var svg = '<svg class="st-radar" viewBox="0 0 340 290" role="img" aria-label="Trading profile">';
     svg += '<polygon class="ring" points="' + poly(R) + '"/><polygon class="ring" points="' + poly(R / 2) + '"/>';
     axes.forEach(function(_, i){ var e = pt(i, R); svg += '<line class="spoke" x1="' + cx + '" y1="' + cy + '" x2="' + e[0].toFixed(1) + '" y2="' + e[1].toFixed(1) + '"/>'; });
-    var shape = axes.map(function(a, i){ var r = Math.max(2, Math.min(100, a.v || 0)) / 100 * R; return pt(i, r); });
-    svg += '<polygon class="shape" points="' + shape.map(function(p){ return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ") + '"/>';
-    shape.forEach(function(p){ svg += '<circle class="dot" cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="3"/>'; });
+    if(hasData){
+      var shape = axes.map(function(a, i){ var r = Math.max(2, Math.min(100, a.v || 0)) / 100 * R; return pt(i, r); });
+      svg += '<polygon class="shape" points="' + shape.map(function(p){ return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ") + '"/>';
+      shape.forEach(function(p){ svg += '<circle class="dot" cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="3"/>'; });
+    }
     axes.forEach(function(a, i){
       var p = pt(i, R + 16);
       var anchor = Math.abs(p[0] - cx) < 4 ? "middle" : (p[0] > cx ? "start" : "end");
@@ -4012,9 +4026,10 @@
         totStart += start;
         if(st.n){ totNet += st.net; totN += st.n; totW += st.wins; }
         var bal = start + (st.n ? st.net : 0);
+        var blank = !start && !st.n;   // nothing to show yet (e.g. a fresh browser)
         return '<tr><td class="name-cell"><span class="dot" style="background:' + firmDotColor(a.firmType) + ';"></span><strong>' + escapeHtml(a.name) + '</strong></td>' +
           '<td>' + stageBadgeHtml(a.stage) + '</td>' +
-          '<td class="num">' + money(start) + '</td><td class="num">' + money(bal) + '</td>' +
+          '<td class="num">' + (blank ? "\u2014" : money(start)) + '</td><td class="num">' + (blank ? "\u2014" : money(bal)) + '</td>' +
           '<td class="num ' + cls(st.n ? st.net : 0) + '">' + (st.n ? sMoney(st.net) : "\u2014") + '</td>' +
           '<td class="num ' + cls(st.growth || 0) + '">' + (st.n && st.growth !== null ? fmtPct(st.growth) : "\u2014") + '</td>' +
           '<td class="num">' + st.n + (st.open ? " +" + st.open + " open" : "") + '</td>' +
@@ -4023,8 +4038,9 @@
           '<td class="num ' + (st.n && st.maxDDPct > 0 ? "down" : "") + '">' + (st.n ? st.maxDDPct.toFixed(2) + "%" : "\u2014") + '</td>' +
           '<td class="num">' + (st.n ? daysAgo(st.last) : "\u2014") + '</td></tr>';
       }).join("") +
-      '<tr class="total"><td>All accounts</td><td></td><td class="num">' + money(totStart) + '</td><td class="num">' + money(totStart + totNet) + '</td>' +
-      '<td class="num ' + cls(totNet) + '">' + sMoney(totNet) + '</td><td class="num ' + cls(totNet) + '">' + (totStart ? fmtPct(totNet / totStart * 100) : "\u2014") + '</td>' +
+      '<tr class="total"><td>All accounts</td><td></td><td class="num">' + (totStart || totN ? money(totStart) : "\u2014") + '</td>' +
+      '<td class="num">' + (totStart || totN ? money(totStart + totNet) : "\u2014") + '</td>' +
+      '<td class="num ' + cls(totNet) + '">' + (totN ? sMoney(totNet) : "\u2014") + '</td><td class="num ' + cls(totNet) + '">' + (totStart ? fmtPct(totNet / totStart * 100) : "\u2014") + '</td>' +
       '<td class="num">' + totN + '</td><td class="num">' + (totN ? (totW / totN * 100).toFixed(0) + "%" : "\u2014") + '</td><td></td><td></td><td></td></tr>' +
       '</tbody></table></div>';
 
@@ -4035,7 +4051,7 @@
         '<span class="name">' + escapeHtml(a.name) + '</span>' + stageBadgeHtml(a.stage) + '</div>';
       var open = '<div class="acct-open"><button type="button" class="btn-ghost acct-open-btn" data-acc="' + escapeHtml(a.id) + '">Open full statistics \u2192</button></div>';
       if(!st.n){
-        return '<div class="acct-card">' + head + '<div class="acct-big"><span class="bal">' + money(st.start || 0) + '</span></div>' +
+        return '<div class="acct-card">' + head + '<div class="acct-big"><span class="bal">' + (st.start ? money(st.start) : "\u2014") + '</span></div>' +
           '<div class="acct-empty">No closed trades yet' + (st.open ? " (" + st.open + " open)" : "") + '.</div>' + open + '</div>';
       }
       return '<div class="acct-card">' + head +
@@ -4064,6 +4080,53 @@
       '<p class="st-note">Each account is measured against its own starting balance. Max DD is the largest drop from any peak; \u201cbelow starting balance\u201d is how far the account ever fell under where it began.</p></div>';
   }
 
+  // The full Statistics layout with "\u2014" in place of every value, shown when
+  // there are no closed trades yet (e.g. a fresh browser, or a visitor
+  // without your synced data), so the page structure is always visible.
+  function statsSkeleton(st){
+    var D = "\u2014";
+    function heroCard(label, sub){ return '<div class="stat"><div class="label">' + label + '</div><div class="value st-empty-val">' + D + '</div><div class="sub">' + sub + '</div></div>'; }
+    function kvs(labels){ return '<div class="kv-group">' + labels.map(function(l){ return kv(l, D); }).join("") + '</div>'; }
+    function emptyTable(headers, rowLabels){
+      return '<div class="st-scroll"><table class="st-table"><thead><tr>' + headers.map(function(h, i){ return '<th' + (i ? ' class="num"' : '') + '>' + h + '</th>'; }).join("") +
+        '</tr></thead><tbody>' + rowLabels.map(function(l){
+          return '<tr><td>' + l + '</td>' + headers.slice(1).map(function(){ return '<td class="num">' + D + '</td>'; }).join("") + '</tr>';
+        }).join("") + '</tbody></table></div>';
+    }
+    var notice = '<div class="st-empty-notice">No closed trades yet. Every figure below fills in once trades with an exit price are logged or synced.</div>';
+    var hero = '<div class="st-hero">' + heroCard("Growth", "since first trade") + heroCard("Net profit", "after fees") +
+      heroCard("Equity", "closed trades only") + heroCard("Initial deposit", "starting balance") +
+      heroCard("Win rate", "of closed trades") + heroCard("Profit factor", "gross profit \u00f7 gross loss") + '</div>';
+    var visuals = '<div class="st-visual">' +
+      '<div class="card"><div class="card-head"><h2>Growth</h2><span class="eyebrow">balance after each closed trade</span></div>' +
+        '<div class="st-curve-meta"><span>Start <b>' + D + '</b></span><span>Now <b>' + D + '</b></span><span>Peak <b>' + D + '</b></span><span>Low <b>' + D + '</b></span></div>' +
+        '<div class="st-curve-empty"><span>No data yet</span></div>' +
+        '<div class="st-curve-axis"><span>' + D + '</span><span>0 closed trades</span><span>' + D + '</span></div></div>' +
+      '<div class="card"><div class="card-head"><h2>Profile</h2></div>' + radarChart(st) + '</div>' +
+    '</div>';
+    var tradeStats = '<div class="card st-section"><div class="card-head"><h2>Trade statistics</h2></div><div class="kv-grid">' +
+      '<div class="kv-col">' + kvs(["Trades", "Profit trades", "Loss trades"]) + kvs(["Best trade", "Worst trade"]) + kvs(["Gross profit", "Gross loss"]) +
+        kvs(["Maximum consecutive wins", "Maximal consecutive profit"]) + kvs(["Sharpe ratio", "Trading days", "Trades per week"]) + '</div>' +
+      '<div class="kv-col">' + kvs(["Recovery factor", "Long trades", "Short trades"]) + kvs(["Profit factor", "Expected payoff"]) + kvs(["Average profit", "Average loss"]) +
+        kvs(["Maximum consecutive losses", "Maximal consecutive loss"]) + kvs(["Monthly growth (average)", "Fees paid", "Open trades"]) + '</div>' +
+    '</div></div>';
+    var dd = '<div class="card" style="margin-bottom:0;"><div class="card-head"><h2>Drawdown</h2></div><div class="kv-grid">' +
+      '<div class="kv-col">' + kvs(["Absolute drawdown", "Maximal drawdown"]) + '</div><div class="kv-col">' + kvs(["Current drawdown from peak", "Recovery factor"]) + '</div></div></div>';
+    var modelRows = CHECKLIST_MODEL_ORDER.map(function(id){ return CHECKLIST_MODELS[id].toggleLabel; }).concat(["No checklist"]);
+    var groupHead = ["", "Trades", "Win rate", "Net P&amp;L", "Avg / trade"];
+    var discipline = '<div class="card"><div class="card-head"><h2>Discipline</h2><span class="eyebrow">Do your rules pay?</span></div>' +
+      '<div class="st-sub">By checklist model</div>' + emptyTable(groupHead, modelRows.map(escapeHtml)) +
+      '<div class="st-sub">Checklist followed?</div>' + emptyTable(groupHead, ["All required items met", "Required items missing", "Checklist not used"]) +
+      '<div class="st-sub">Session</div>' + emptyTable(groupHead, ["Off-session (outside killzones)", "Not flagged"]) + '</div>';
+    var dist = '<div class="card st-section"><div class="card-head"><h2>Distribution by symbol</h2></div>' +
+      emptyTable(["Symbol", "Deals", "Buy / Sell", "Win rate", "Net P&amp;L"], [D]) + '</div>';
+    var monthly = '<div class="card"><div class="card-head"><h2>Monthly</h2></div>' + emptyTable(["Month", "Trades", "Win", "Net P&amp;L", "Return"], [D]) + '</div>';
+    var weekday = '<div class="card"><div class="card-head"><h2>By weekday</h2></div>' + emptyTable(["Day", "Trades", "Win", "Net P&amp;L"], ["Mon", "Tue", "Wed", "Thu", "Fri"]) + '</div>';
+    var accounts = (activeFirmFilter === "All" && data.accounts.length > 1) ? accountBreakdown() : "";
+    return notice + hero + visuals + accounts + tradeStats + '<div class="st-2col st-section">' + dd + discipline + '</div>' +
+      dist + '<div class="st-2col st-section">' + monthly + weekday + '</div>';
+  }
+
   function renderStatsView(){
     var root = document.getElementById("statsRoot");
     if(!root) return;
@@ -4088,7 +4151,7 @@
     var head = '<div class="st-head"><h2>Statistics</h2><span class="eyebrow">' + escapeHtml(accLabel) +
       (st.n ? " \u00b7 " + fmtShortDate(st.first) + " \u2013 " + fmtShortDate(st.last) + " " + st.last.slice(0, 4) : "") + "</span></div>";
     if(!st.n){
-      root.innerHTML = head + '<div class="card"><div class="empty-state">No closed trades for this account yet. Statistics appear once trades have an exit price.</div></div>';
+      root.innerHTML = head + statsSkeleton(st);
       return;
     }
     var pfStr = st.pf === null ? "\u2014" : (st.pf === Infinity ? "\u221e" : st.pf.toFixed(2));
