@@ -1535,7 +1535,8 @@
       var req = m.items.filter(function(it){ return it.required || (it.requiredFor && it.requiredFor.length); }).length;
       return '<div class="cl-model"><div class="meta"><strong>' + escapeHtml(m.toggleLabel || m.name) + (i === 0 ? ' \u00b7 default' : '') + '</strong>' +
         '<span>id ' + escapeHtml(m.id) + ' \u00b7 ' + m.items.length + ' items (' + req + ' required) \u00b7 ' + tradesUsingModel(m.id) + ' trades</span></div>' +
-        '<div class="acts"><button type="button" class="btn-ghost" data-export="' + escapeHtml(m.id) + '">Export</button>' +
+        '<div class="acts">' + (i > 0 ? '<button type="button" class="btn-ghost" data-default="' + escapeHtml(m.id) + '">Set as default</button>' : '') +
+        '<button type="button" class="btn-ghost" data-export="' + escapeHtml(m.id) + '">Export</button>' +
         (data.checklistModels.length > 1 ? '<button type="button" class="btn-ghost btn-danger" data-delete="' + escapeHtml(m.id) + '">Delete</button>' : '') +
         '</div></div>';
     }).join("");
@@ -1611,6 +1612,18 @@
     if(saveModels(next, previous)) alert("Model V2 and Model V1 restored.");
   });
   document.getElementById("clModelList").addEventListener("click", function(e){
+    var def = e.target.closest("[data-default]");
+    if(def){
+      var did = def.getAttribute("data-default");
+      if(!CHECKLIST_MODELS[did]) return;
+      var prevList = cloneJson(data.checklistModels);
+      var moved = data.checklistModels.filter(function(x){ return x.id === did; })
+        .concat(data.checklistModels.filter(function(x){ return x.id !== did; }));
+      lastChecklistModel = did;                  // new trades start on it
+      if(!editingId) currentChecklistModel = did; // switch the open form too, unless editing a saved trade
+      saveModels(moved, prevList);
+      return;
+    }
     var ex = e.target.closest("[data-export]"), del = e.target.closest("[data-delete]");
     if(ex){ exportModels([ex.getAttribute("data-export")]); return; }
     if(del){
