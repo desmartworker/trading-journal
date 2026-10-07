@@ -3634,7 +3634,7 @@
   // How far New York is from the viewer, e.g. "New York is 11 hours behind
   // you". Recomputed live, so it changes by itself after a clock change.
   function nyOffsetMinutes(){
-    var now = Date.now();
+    var now = Math.floor(Date.now() / 60000) * 60000; // whole minute, so seconds can't skew the offset
     var p = nyParts(now);
     var nyAsUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
     var nyOffset = Math.round((nyAsUtc - now) / 60000);           // NY minus UTC
