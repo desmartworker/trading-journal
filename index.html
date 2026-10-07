@@ -620,7 +620,8 @@
     border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);
     height:520px;max-width:100%;
   }
-  .tv-calendar-wrap iframe{display:block;width:100%;height:100%;border:0;max-width:100%;background:#ffffff;}
+  .tv-calendar-wrap{position:relative;}
+  .tv-calendar-wrap iframe{display:block;border:0;background:#ffffff;transform-origin:0 0;position:absolute;left:0;top:0;}
   .tv-fallback{padding:28px 16px;text-align:center;font-size:13px;color:var(--text-muted);line-height:1.6;}
   .tv-fallback a{color:var(--amber);font-weight:600;}
   @media (max-width:640px){ .tv-calendar-wrap{height:420px;} }
@@ -3604,7 +3605,28 @@
     frame.loading = "lazy";
     frame.setAttribute("referrerpolicy", "no-referrer-when-downgrade");
     wrap.appendChild(frame);
+    fitCalendarFrame();
   }
+  // Investing.com's table has a fixed width (about 500px) inside its frame,
+  // which left empty space on the right. The frame is drawn at that width
+  // and scaled to fill the box, then refitted whenever the box resizes.
+  var INV_CONTENT_WIDTH = 505;
+  function fitCalendarFrame(){
+    var wrap = document.getElementById("tvCalendarWrap");
+    var frame = wrap && wrap.querySelector("iframe");
+    if(!frame) return;
+    var w = wrap.clientWidth, h = wrap.clientHeight;
+    if(!w || !h) return;
+    var scale = w / INV_CONTENT_WIDTH;
+    frame.style.width = INV_CONTENT_WIDTH + "px";
+    frame.style.height = Math.ceil(h / scale) + "px";
+    frame.style.transform = "scale(" + scale + ")";
+  }
+  var calFitTimer = null;
+  window.addEventListener("resize", function(){
+    clearTimeout(calFitTimer);
+    calFitTimer = setTimeout(fitCalendarFrame, 100);
+  });
 
   // ---------- New York time helpers ----------
   // Used by the killzone reminder and the calendar caption.
