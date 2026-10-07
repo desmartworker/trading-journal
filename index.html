@@ -618,13 +618,14 @@
   .tv-legend a:hover{text-decoration:underline;}
   .tv-calendar-wrap{
     border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);
-    height:720px;max-width:100%;
+    height:400px;max-width:100%;
   }
-  .tv-calendar-wrap{position:relative;}
-  .tv-calendar-wrap iframe{display:block;border:0;width:100%;height:100%;background:#ffffff;}
+  .tv-calendar-wrap .tradingview-widget-container,
+  .tv-calendar-wrap .tradingview-widget-container__widget{height:100%;width:100%;}
+  .tv-calendar-wrap iframe{display:block;max-width:100%;}
   .tv-fallback{padding:28px 16px;text-align:center;font-size:13px;color:var(--text-muted);line-height:1.6;}
   .tv-fallback a{color:var(--amber);font-weight:600;}
-  @media (max-width:640px){ .tv-calendar-wrap{height:620px;} }
+  @media (max-width:640px){ .tv-calendar-wrap{height:420px;} }
   #newsCard.collapsed #tvBody{display:none;}
   #newsCard.collapsed .kz-strip{margin-bottom:0;}
   #newsCard .card-head{margin-bottom:10px;}
@@ -843,15 +844,18 @@
         <div class="card-head">
           <h2>Economic calendar</h2>
           <div class="news-head-right">
-            <span class="eyebrow">TradingView · this week</span>
+            <span class="eyebrow">US · Euro Area · live</span>
             <button id="tvToggle" class="btn-ghost news-refresh" type="button" aria-expanded="false" aria-controls="tvBody">Show calendar</button>
           </div>
         </div>
         <div class="kz-strip" id="kzStrip" aria-live="polite"></div>
         <div id="tvBody">
+          <div class="news-toolbar">
+            <div class="news-filters" id="tvFilters"></div>
+          </div>
           <div class="tv-legend">
-            <span>For <b>high importance only</b>, click the bar-chart icon at the top of the calendar. Pick New York time in its clock menu.</span>
-            <a id="tvSiteLink" href="https://www.tradingview.com/economic-calendar/" target="_blank" rel="noopener">Open on TradingView ↗</a>
+            <span>Numbers on each row, left to right: <b>Actual</b> · <b>Forecast</b> · <b>Prior</b>. Upcoming events have no Actual yet.</span>
+            <a href="https://www.tradingview.com/economic-calendar/" target="_blank" rel="noopener">Full calendar with headers ↗</a>
           </div>
           <div class="tv-calendar-wrap" id="tvCalendarWrap"></div>
         <p class="sync-hint" id="newsStatus"></p>
@@ -1160,7 +1164,7 @@
     else document.documentElement.removeAttribute("data-theme");
     try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
     applyThemeIcon();
-
+    if(typeof renderTvCalendar === "function" && document.getElementById("tvCalendarWrap")) renderTvCalendar();
   }
   document.getElementById("themeToggle").addEventListener("click", function(){
     setTheme(currentTheme() === "dark" ? "light" : "dark");
@@ -3504,10 +3508,11 @@
   // reading other sites don't apply. Times are in your local time zone.
   // Filters are remembered; the widget is rebuilt when they or the theme change.
   var TV_PREFS_KEY = "tapeJournalTvCalendar_v1";
+  var TV_SCRIPT = "https://s3.tradingview.com/external-embedding/embed-widget-events.js";
   var TV_IMPORTANCE = [
-    { id: "high",   label: "High only",     filter: "3" },
-    { id: "medium", label: "Medium + High", filter: "2,3" },
-    { id: "all",    label: "All",           filter: "1,2,3" }
+    { id: "high",   label: "High only",     filter: "1" },
+    { id: "medium", label: "Medium + High", filter: "0,1" },
+    { id: "all",    label: "All",           filter: "-1,0,1" }
   ];
   var TV_COUNTRIES = [ { id: "us", label: "US" }, { id: "eu", label: "Euro Area" } ];
   var tvPrefs = (function(){
@@ -3542,29 +3547,80 @@
   var tvLoadTimer = null;
   function saveTvPrefs(){ try{ localStorage.setItem(TV_PREFS_KEY, JSON.stringify(tvPrefs)); }catch(e){} }
 
-  // TradingView's full economic calendar page, opened on the current week.
-  // Its "timestamp" is the week start in ms: Monday 00:00 New York time.
-  // Importance, countries and time zone are set inside the calendar itself.
-  var TV_SITE_URL = "https://www.tradingview.com/economic-calendar/";
-  function tvWeekStartMs(){
-    var today = keyDate(nyKey(Date.now()));          // today's date in New York
-    var dow = today.getUTCDay();                     // 0 Sun ... 6 Sat
-    var monday = new Date(today.getTime() + (dow === 0 ? 1 : 1 - dow) * 86400000); // Sunday looks ahead
-    return nyWallToMs(monday.toISOString().slice(0, 10), 0);
+  function renderTvFilters(){
+    var wrap = document.getElementById("tvFilters");
+    if(!wrap) return;
+    wrap.innerHTML = "";
+    function chip(label, on, onClick){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "news-chip" + (on ? " on" : "");
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.textContent = label;
+      b.addEventListener("click", onClick);
+      wrap.appendChild(b);
+    }
+    TV_COUNTRIES.forEach(function(c){
+      chip(c.label, !!tvPrefs.countries[c.id], function(){
+        var next = !tvPrefs.countries[c.id];
+        var others = TV_COUNTRIES.some(function(o){ return o.id !== c.id && tvPrefs.countries[o.id]; });
+        if(!next && !others) return; // keep at least one region selected
+        tvPrefs.countries[c.id] = next;
+        saveTvPrefs(); renderTvFilters(); renderTvCalendar();
+      });
+    });
+    var sep = document.createElement("span");
+    sep.style.cssText = "width:1px;background:var(--border);margin:2px 4px;";
+    wrap.appendChild(sep);
+    TV_IMPORTANCE.forEach(function(imp){
+      chip(imp.label, tvPrefs.importance === imp.id, function(){
+        if(tvPrefs.importance === imp.id) return;
+        tvPrefs.importance = imp.id;
+        saveTvPrefs(); renderTvFilters(); renderTvCalendar();
+      });
+    });
   }
-  function tvSiteUrl(){ return TV_SITE_URL + "?timestamp=" + tvWeekStartMs(); }
+
   function renderTvCalendar(){
     var wrap = document.getElementById("tvCalendarWrap");
     if(!wrap || tvPrefs.collapsed) return;
-    var url = tvSiteUrl();
-    var link = document.getElementById("tvSiteLink");
-    if(link) link.href = url;
+    clearTimeout(tvLoadTimer);
     wrap.innerHTML = "";
-    var frame = document.createElement("iframe");
-    frame.src = url;
-    frame.title = "Economic calendar (TradingView)";
-    frame.loading = "lazy";
-    wrap.appendChild(frame);
+    var container = document.createElement("div");
+    container.className = "tradingview-widget-container";
+    var inner = document.createElement("div");
+    inner.className = "tradingview-widget-container__widget";
+    container.appendChild(inner);
+    var imp = TV_IMPORTANCE.filter(function(i){ return i.id === tvPrefs.importance; })[0] || TV_IMPORTANCE[1];
+    var countries = TV_COUNTRIES.filter(function(c){ return tvPrefs.countries[c.id]; }).map(function(c){ return c.id; });
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.async = true;
+    script.src = TV_SCRIPT;
+    script.text = JSON.stringify({
+      colorTheme: currentTheme() === "dark" ? "dark" : "light",
+      isTransparent: true,
+      width: "100%",
+      height: "100%",
+      locale: "en",
+      timezone: "America/New_York", // not documented for this widget; ignored if unsupported
+      importanceFilter: imp.filter,
+      countryFilter: (countries.length ? countries : ["us", "eu"]).join(",")
+    });
+    container.appendChild(script);
+    wrap.appendChild(container);
+    // If nothing has loaded after 10 seconds (offline, or the page is opened
+    // somewhere that blocks embedded content), offer a direct link instead.
+    tvLoadTimer = setTimeout(function(){
+      if(!wrap.querySelector("iframe")){
+        wrap.innerHTML = '<div class="tv-fallback">The TradingView calendar didn\u2019t load here. ' +
+          'Check your connection, or open this journal in a regular browser tab.<br>' +
+          '<a href="https://www.tradingview.com/economic-calendar/" target="_blank" rel="noopener">Open the calendar on TradingView \u2197</a>' +
+          ' \u00b7 <a href="#" id="tvRetry">Try again</a></div>';
+        var retry = document.getElementById("tvRetry");
+        if(retry) retry.addEventListener("click", function(e){ e.preventDefault(); renderTvCalendar(); });
+      }
+    }, 10000);
   }
 
   // ---------- New York time helpers ----------
@@ -3602,17 +3658,19 @@
     var localOffset = -new Date(now).getTimezoneOffset();         // local minus UTC
     return localOffset - nyOffset;                                // local minus NY
   }
+  // The widget always uses the viewer's own time zone (it ignores the New
+  // York setting), so the caption gives the conversion to New York time.
   function nyOffsetCaption(){
     var d = nyOffsetMinutes();
-    if(Math.abs(d) < 1) return "times in New York time (same as yours).";
+    if(Math.abs(d) < 1) return "times are in your local time, which is New York time.";
     var h = Math.floor(Math.abs(d) / 60), m = Math.abs(d) % 60;
     var amount = h + (m ? "h " + m + "m" : (h === 1 ? " hour" : " hours"));
-    return "times in New York time \u2014 " + (d > 0 ? "add " : "subtract ") + amount + " for your time.";
+    return "times are in your local time \u2014 " + (d > 0 ? "subtract " : "add ") + amount + " for New York time.";
   }
 
   function renderNewsStatus(){
     var el = document.getElementById("newsStatus");
-    if(el) el.textContent = "Economic calendar by TradingView \u00b7 if this box says it refused to connect, TradingView blocks showing its page inside other sites \u2014 use Open on TradingView.";
+    if(el) el.textContent = "Live calendar by TradingView \u00b7 " + nyOffsetCaption();
   }
 
   // ---------- Killzone reminder ----------
@@ -3736,6 +3794,7 @@
     }
   }
 
+  renderTvFilters();
   document.getElementById("tvToggle").addEventListener("click", function(){
     tvPrefs.collapsed = !tvPrefs.collapsed;
     saveTvPrefs();
