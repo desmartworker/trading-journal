@@ -549,6 +549,25 @@
   .news-chip.on{color:var(--text);background:var(--surface-2);border-color:var(--text-muted);}
   .news-chip .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;}
   .kz-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .fed-box{border:1px solid var(--border);border-radius:8px;background:var(--surface-2);padding:8px 12px;margin-bottom:12px;}
+  .fed-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+  .fed-head b{font-size:12.5px;}
+  .fed-head a{font-size:11px;color:var(--amber);text-decoration:none;font-weight:600;}
+  .fed-head a:hover{text-decoration:underline;}
+  .fed-row{display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:4px 12px;align-items:baseline;padding:5px 0;border-top:1px dashed var(--border);font-size:12.5px;}
+  .fed-row:first-of-type{border-top:none;}
+  .fed-when{font-family:'IBM Plex Mono',monospace;font-size:11.5px;}
+  .fed-when .local{display:block;color:var(--text-muted);font-size:10.5px;}
+  .fed-name{min-width:0;}
+  .fed-name .tag{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    padding:1px 6px;border-radius:20px;background:var(--surface);border:1px solid var(--border);color:var(--text-muted);vertical-align:1px;}
+  .fed-name .tag.week{background:var(--loss-bg);color:var(--loss);border-color:transparent;}
+  .fed-cd{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text-muted);white-space:nowrap;}
+  .fed-row.soon .fed-cd{color:var(--warning);font-weight:600;}
+  .fed-row.live{background:var(--loss-bg);border-radius:6px;padding-left:6px;padding-right:6px;}
+  .fed-row.live .fed-cd{color:var(--loss);font-weight:700;}
+  .fed-note{font-size:10.5px;color:var(--text-muted);margin-top:4px;line-height:1.45;}
+  @media (max-width:520px){ .fed-row{grid-template-columns:minmax(0,1fr) auto;} .fed-name{grid-column:1 / -1;order:-1;} }
   .kz-pill{
     flex:1 1 220px;display:flex;flex-direction:column;gap:1px;padding:6px 10px;
     border:1px solid var(--border);border-radius:8px;background:var(--surface-2);
@@ -849,6 +868,7 @@
           </div>
         </div>
         <div class="kz-strip" id="kzStrip" aria-live="polite"></div>
+        <div class="fed-box" id="fedBox"></div>
         <div id="tvBody">
           <div class="news-toolbar">
             <div class="news-filters" id="tvFilters"></div>
@@ -3785,8 +3805,80 @@
 
   // Called every second by the clock: killzone countdown each second,
   // caption each minute (the New York offset changes after a clock change).
+  // ---------- Fed (FOMC) events ----------
+  // From the Federal Reserve's official FOMC calendar (federalreserve.gov,
+  // monetary policy > meeting calendars). Second meeting day is listed.
+  // Decision + statement 14:00 NY, press conference 14:30 NY, minutes 14:00 NY.
+  // Minutes come exactly 3 weeks after the meeting; where the Fed hasn't
+  // posted the date yet, it's computed that way and marked "expected".
+  // sep = meeting with a Summary of Economic Projections (dot plot).
+  var FOMC_MEETINGS = [
+    { day: "2026-01-28", sep: false, minutes: "2026-02-18" },
+    { day: "2026-03-18", sep: true,  minutes: "2026-04-08" },
+    { day: "2026-04-29", sep: false, minutes: "2026-05-20" },
+    { day: "2026-06-17", sep: true,  minutes: "2026-07-08" },
+    { day: "2026-07-29", sep: false, minutes: "2026-08-19" },
+    { day: "2026-09-16", sep: true,  minutes: "2026-10-07" }, // confirmed on TradingView and Investing.com calendars
+    { day: "2026-10-28", sep: false },
+    { day: "2026-12-09", sep: true },
+    { day: "2027-01-27", sep: false },
+    { day: "2027-03-17", sep: true },
+    { day: "2027-04-28", sep: false },
+    { day: "2027-06-09", sep: true },
+    { day: "2027-07-28", sep: false },
+    { day: "2027-09-15", sep: true },
+    { day: "2027-10-27", sep: false },
+    { day: "2027-12-08", sep: true }
+  ];
+  var FED_CAL_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm";
+  var MON_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function addDaysKey(key, n){ return new Date(keyDate(key).getTime() + n * 86400000).toISOString().slice(0, 10); }
+  var FED_EVENTS = (function(){
+    var list = [];
+    FOMC_MEETINGS.forEach(function(m){
+      list.push({ key: m.day, mins: 14 * 60, name: "FOMC rate decision & statement" + (m.sep ? " + projections (dot plot)" : "") });
+      list.push({ key: m.day, mins: 14 * 60 + 30, name: "Fed Chair press conference" });
+      var mk = m.minutes || addDaysKey(m.day, 21);
+      list.push({ key: mk, mins: 14 * 60, name: "FOMC Meeting Minutes", expected: !m.minutes });
+    });
+    list.forEach(function(e){ e.t = nyWallToMs(e.key, e.mins); });
+    return list.sort(function(a, b){ return a.t - b.t; });
+  })();
+
+  function renderFedEvents(){
+    var el = document.getElementById("fedBox");
+    if(!el) return;
+    var now = Date.now(), win = 30 * 60000;
+    var weekKeys = (function(){ // Mon-Sun of the current NY week
+      var today = keyDate(nyKey(now)), dow = today.getUTCDay(), off = dow === 0 ? -6 : 1 - dow, out = [];
+      for(var i = 0; i < 7; i++) out.push(new Date(today.getTime() + (off + i) * 86400000).toISOString().slice(0, 10));
+      return out;
+    })();
+    var upcoming = FED_EVENTS.filter(function(e){ return e.t + win > now; }).slice(0, 3);
+    if(!upcoming.length){ el.style.display = "none"; return; }
+    el.style.display = "";
+    var rows = upcoming.map(function(e){
+      var d = keyDate(e.key);
+      var until = e.t - now;
+      var cls = "fed-row" + (Math.abs(until) <= win ? " live" : (until > 0 && until <= 24 * 3600000 ? " soon" : ""));
+      var cd = Math.abs(until) <= win ? (until > 0 ? "in " + fmtCountdown(until) + " \u00b7 no trades" : "now \u00b7 no trades") : "in " + fmtCountdown(until);
+      var localDay = DOW_SHORT[new Date(e.t).getDay()];
+      return '<div class="' + cls + '">' +
+        '<div class="fed-when">' + DOW_SHORT[d.getUTCDay()] + " " + MON_SHORT[d.getUTCMonth()] + " " + d.getUTCDate() + " \u00b7 " + hm(e.mins) + " NY" +
+          '<span class="local">' + localDay + " " + localHM(e.t) + " your time</span></div>" +
+        '<div class="fed-name">' + escapeHtml(e.name) +
+          (weekKeys.indexOf(e.key) > -1 ? '<span class="tag week">This week</span>' : "") +
+          (e.expected ? '<span class="tag" title="3 weeks after the meeting, the Fed\u2019s usual pattern; not yet posted by the Fed">Expected</span>' : "") + "</div>" +
+        '<div class="fed-cd">' + cd + "</div></div>";
+    }).join("");
+    el.innerHTML = '<div class="fed-head"><b>\ud83c\uddfa\ud83c\uddf8 Fed (FOMC) \u2014 next events</b>' +
+      '<a href="' + FED_CAL_URL + '" target="_blank" rel="noopener">Fed calendar \u2197</a></div>' + rows +
+      '<div class="fed-note">From the Federal Reserve\u2019s official schedule, shown because the TradingView widget can leave these out. Red-folder: no trades within \u00b130 min (R2).</div>';
+  }
+
   function tickNews(){
     renderKillzones();
+    renderFedEvents();
     var m = Math.floor(Date.now() / 60000);
     if(m !== newsLastMinute){
       newsLastMinute = m;
