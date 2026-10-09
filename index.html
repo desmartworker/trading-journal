@@ -291,6 +291,31 @@
   .top-row > .card{margin-bottom:0;min-width:0;}
   @media (max-width:880px){ .top-row{grid-template-columns:minmax(0,1fr);} }
 
+  /* Performance card */
+  .perf-hero{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+  .perf-hero .label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:4px;}
+  .perf-hero .value{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:700;}
+  .perf-hero .value.up{color:var(--gain);} .perf-hero .value.down{color:var(--loss);}
+  .perf-hero .sub{font-size:11.5px;color:var(--text-muted);margin-top:2px;}
+  .perf-section{margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);}
+  .perf-title{font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--text-muted);margin-bottom:6px;}
+  .perf-winbar{margin-bottom:6px;}
+  .perf-winbar:empty{display:none;}
+  .perf-winbar .track{position:relative;height:8px;border-radius:4px;background:var(--surface-2);border:1px solid var(--border);margin:6px 0 4px;}
+  .perf-winbar .fill{height:100%;border-radius:4px;background:var(--gain);}
+  .perf-winbar .fill.below{background:var(--loss);}
+  .perf-winbar .mark{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;border-radius:1px;background:var(--text);}
+  .perf-winbar .cap{font-size:11.5px;line-height:1.45;color:var(--text-muted);}
+  .perf-winbar .cap b{color:var(--text);}
+
+  /* Day counter (Day 1 = first trade) */
+  .day-badge{
+    margin-left:auto;display:inline-flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+    padding:6px 12px;border-radius:20px;background:var(--accent-light);color:var(--text-muted);font-size:12px;
+  }
+  .day-badge b{font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--amber);}
+  @media (max-width:480px){ .day-badge{margin-left:0;} }
+
   /* Calendar heatmap */
   .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
   .cal-nav .label{font-size:13px;font-weight:600;font-family:'Fraunces',serif;}
@@ -939,6 +964,7 @@
         <button id="nextDay" class="btn-ghost" aria-label="Next day">→</button>
         <input type="date" id="datePicker">
         <button id="todayBtn" class="btn-ghost">Today</button>
+        <span class="day-badge" id="dayBadge" hidden></span>
       </div>
 
       <div class="card">
@@ -1126,17 +1152,29 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head"><h2>Performance</h2></div>
-        <div class="stat-grid">
-          <div class="stat"><div class="label">Total P&amp;L</div><div class="value" id="statTotal">$0.00</div></div>
-          <div class="stat"><div class="label">Win rate</div><div class="value" id="statWinRate">—</div></div>
-          <div class="stat"><div class="label">Avg win</div><div class="value up" id="statAvgWin">$0.00</div></div>
-          <div class="stat"><div class="label">Avg loss</div><div class="value down" id="statAvgLoss">$0.00</div></div>
-          <div class="stat"><div class="label">Profit factor</div><div class="value" id="statPF">—</div></div>
-          <div class="stat"><div class="label">Streak</div><div class="value" id="statStreak">—</div></div>
-          <div class="stat" style="grid-column:1/-1;"><div class="label">Open trades</div><div class="value" id="statOpen">0</div></div>
-          <div class="stat" style="grid-column:1/-1;"><div class="label">Off-session trades (outside killzones)</div><div class="value" id="statOffSession">0</div></div>
+      <div class="card" id="perfCard">
+        <div class="card-head"><h2>Performance</h2><span class="eyebrow" id="perfScope">All accounts</span></div>
+        <div class="perf-hero">
+          <div class="label">Net P&amp;L</div>
+          <div class="value" id="statTotal">$0.00</div>
+          <div class="sub" id="perfSub">No closed trades yet</div>
+        </div>
+        <div class="perf-section">
+          <div class="perf-title">Edge</div>
+          <div class="perf-winbar" id="perfWinBar"></div>
+          <div class="kv"><span class="k">Win rate</span><span class="v" id="statWinRate">—</span></div>
+          <div class="kv"><span class="k">Profit factor</span><span class="v" id="statPF">—</span></div>
+          <div class="kv"><span class="k">Average win</span><span class="v up" id="statAvgWin">—</span></div>
+          <div class="kv"><span class="k">Average loss</span><span class="v down" id="statAvgLoss">—</span></div>
+          <div class="kv"><span class="k">Win size ÷ loss size</span><span class="v" id="statRatio">—</span></div>
+          <div class="kv"><span class="k">Expected per trade</span><span class="v" id="statPayoff">—</span></div>
+        </div>
+        <div class="perf-section">
+          <div class="perf-title">Discipline</div>
+          <div class="kv"><span class="k">Current streak</span><span class="v" id="statStreak">—</span></div>
+          <div class="kv"><span class="k">Rule breaks</span><span class="v" id="statRuleBreaks">0</span></div>
+          <div class="kv"><span class="k">Off-session trades</span><span class="v" id="statOffSession">0</span></div>
+          <div class="kv"><span class="k">Open trades</span><span class="v" id="statOpen">0</span></div>
         </div>
       </div>
 
@@ -2339,6 +2377,23 @@
     var d = parseDate(selectedDate);
     elDateLabel.textContent = WEEKDAY[d.getDay()] + ", " + MONTH[d.getMonth()] + " " + d.getDate();
     elDatePicker.value = selectedDate;
+    renderDayBadge();
+  }
+
+  // "Day N": calendar days since the first trade logged for the selected
+  // account (or any account under All), counting that first day as Day 1.
+  function renderDayBadge(){
+    var el = document.getElementById("dayBadge");
+    if(!el) return;
+    var dates = filteredTrades().map(function(t){ return t.date; }).filter(Boolean).sort();
+    if(!dates.length || selectedDate < dates[0]){ el.hidden = true; el.innerHTML = ""; return; }
+    var dayN = Math.round((parseDate(selectedDate) - parseDate(dates[0])) / 86400000) + 1;
+    var traded = {};
+    dates.forEach(function(ds){ if(ds <= selectedDate) traded[ds] = true; });
+    var tradedN = Object.keys(traded).length;
+    el.hidden = false;
+    el.title = "Counted from your first trade on " + fmtShortDate(dates[0]) + " " + dates[0].slice(0, 4);
+    el.innerHTML = "<b>Day " + dayN + "</b><span>" + tradedN + " day" + (tradedN === 1 ? "" : "s") + " traded \u00b7 since " + fmtShortDate(dates[0]) + "</span>";
   }
 
   // ---------- Ledger table ----------
@@ -2774,20 +2829,47 @@
     var wins = trades.filter(function(t){ return t.pnl > 0; });
     var losses = trades.filter(function(t){ return t.pnl < 0; });
     var winRate = (wins.length + losses.length) ? (wins.length / (wins.length + losses.length) * 100) : null;
-    var avgWin = wins.length ? wins.reduce(function(s,t){return s+t.pnl;},0) / wins.length : 0;
-    var avgLoss = losses.length ? losses.reduce(function(s,t){return s+t.pnl;},0) / losses.length : 0;
     var grossWin = wins.reduce(function(s,t){return s+t.pnl;},0);
     var grossLoss = Math.abs(losses.reduce(function(s,t){return s+t.pnl;},0));
+    var avgWin = wins.length ? grossWin / wins.length : null;
+    var avgLoss = losses.length ? -grossLoss / losses.length : null;
     var pf = grossLoss > 0 ? (grossWin / grossLoss) : (grossWin > 0 ? Infinity : null);
+    var ratio = (avgWin !== null && avgLoss !== null) ? avgWin / Math.abs(avgLoss) : null;
+    // Win rate needed to break even at the current average win and loss sizes.
+    var breakEven = (avgWin !== null && avgLoss !== null) ? Math.abs(avgLoss) / (avgWin + Math.abs(avgLoss)) * 100 : null;
+    function setV(id, text, c){ var el = document.getElementById(id); el.textContent = text; el.className = (id === "statTotal" ? "value " : "v ") + (c || ""); }
+    function tone(n){ return n > 0 ? "up" : (n < 0 ? "down" : ""); }
 
-    document.getElementById("statTotal").textContent = money(total);
-    document.getElementById("statTotal").className = "value " + (total > 0 ? "up" : (total < 0 ? "down" : ""));
-    document.getElementById("statWinRate").textContent = winRate === null ? "—" : winRate.toFixed(0) + "%";
-    document.getElementById("statAvgWin").textContent = money(avgWin);
-    document.getElementById("statAvgLoss").textContent = money(avgLoss);
-    document.getElementById("statPF").textContent = (pf === null) ? "—" : (pf === Infinity ? "∞" : pf.toFixed(2));
+    var scope = activeFirmFilter === "All" ? "All accounts" : (accountById(activeFirmFilter) ? accountById(activeFirmFilter).name : "—");
+    document.getElementById("perfScope").textContent = scope;
 
-    // streak: order by date then insertion
+    // Headline
+    setV("statTotal", (total > 0 ? "+" : "") + money(total), tone(total));
+    var acctStart = computeStartingBalance();
+    document.getElementById("perfSub").textContent = trades.length
+      ? trades.length + " closed trade" + (trades.length === 1 ? "" : "s") + (acctStart > 0 ? " · " + fmtPct(total / acctStart * 100) + " on starting balance" : "")
+      : "No closed trades yet";
+
+    // Edge
+    var bar = document.getElementById("perfWinBar");
+    if(winRate !== null && breakEven !== null){
+      var above = winRate >= breakEven;
+      bar.innerHTML = '<div class="track" role="img" aria-label="Win rate ' + winRate.toFixed(1) + '% against ' + breakEven.toFixed(1) + '% needed to break even">' +
+        '<div class="fill' + (above ? "" : " below") + '" style="width:' + Math.min(100, winRate).toFixed(1) + '%"></div>' +
+        '<span class="mark" style="left:' + Math.min(100, breakEven).toFixed(1) + '%" title="Break-even win rate"></span></div>' +
+        '<div class="cap"><b>' + winRate.toFixed(1) + '%</b> win rate · <b>' + breakEven.toFixed(1) + '%</b> needed to break even' +
+        (above ? "" : " (" + (breakEven - winRate).toFixed(1) + " pts short)") + '</div>';
+    } else {
+      bar.innerHTML = "";
+    }
+    setV("statWinRate", winRate === null ? "—" : winRate.toFixed(1) + "% (" + wins.length + "/" + (wins.length + losses.length) + ")");
+    setV("statPF", pf === null ? "—" : (pf === Infinity ? "∞" : pf.toFixed(2)), pf === null ? "" : (pf >= 1 ? "up" : "down"));
+    setV("statAvgWin", avgWin === null ? "—" : "+" + money(avgWin), "up");
+    setV("statAvgLoss", avgLoss === null ? "—" : money(avgLoss), "down");
+    setV("statRatio", ratio === null ? "—" : ratio.toFixed(2) + " : 1");
+    setV("statPayoff", trades.length ? (total / trades.length > 0 ? "+" : "") + money(total / trades.length) : "—", trades.length ? tone(total) : "");
+
+    // Discipline: streak, ordered by date then logging order
     var ordered = trades.slice().sort(function(a,b){
       if(a.date === b.date) return 0;
       return a.date < b.date ? -1 : 1;
@@ -2801,18 +2883,18 @@
       else if(type === streakType){ streak++; }
       else break;
     }
-    var streakEl = document.getElementById("statStreak");
-    streakEl.textContent = streak ? (streak + (streakType === "W" ? " win" : " loss") + (streak>1?"es":"")) : "—";
-    streakEl.className = "value " + (streakType === "W" ? "up" : (streakType === "L" ? "down" : ""));
+    setV("statStreak", streak ? streak + (streakType === "W" ? (streak > 1 ? " wins" : " win") : (streak > 1 ? " losses" : " loss")) : "—",
+      streakType === "W" ? "up" : (streakType === "L" ? "down" : ""));
 
-    document.getElementById("statOpen").textContent = openCount;
-
-    var off = allTrades.filter(function(t){ return t.offSession; });
-    var offClosed = off.filter(isClosed);
-    var offPnl = offClosed.reduce(function(s2,t){ return s2 + t.pnl; }, 0);
-    var offEl = document.getElementById("statOffSession");
-    offEl.textContent = off.length ? (off.length + " \u00b7 " + (offClosed.length ? money(offPnl) : "no closed P&L yet")) : "0";
-    offEl.className = "value " + (off.length && offClosed.length ? (offPnl < 0 ? "down" : "up") : "");
+    function flagged(list){
+      var closed = list.filter(isClosed), pnl = closed.reduce(function(s2,t){ return s2 + t.pnl; }, 0);
+      return { text: list.length ? list.length + (closed.length ? " · " + (pnl > 0 ? "+" : "") + money(pnl) : "") : "0", cls: list.length && closed.length ? tone(pnl) : "" };
+    }
+    var rb = flagged(allTrades.filter(function(t){ return t.ruleBreak; }));
+    setV("statRuleBreaks", rb.text, rb.cls);
+    var off = flagged(allTrades.filter(function(t){ return t.offSession; }));
+    setV("statOffSession", off.text, off.cls);
+    setV("statOpen", String(openCount));
   }
 
   // ---------- Equity curve ----------
