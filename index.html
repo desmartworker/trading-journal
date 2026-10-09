@@ -787,6 +787,32 @@
     margin-top:10px; font-size:12.5px; color:var(--text-muted);
   }
   .balance-trade-count .value{font-family:'IBM Plex Mono',monospace; font-weight:600; color:var(--text);}
+
+  /* ---------- Broker reconciliation ---------- */
+  .rc-drop{display:block;border:1.5px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:12.5px;color:var(--text-muted);cursor:pointer;background:var(--surface-2);}
+  .rc-drop:hover, .rc-drop.over{border-color:var(--amber);color:var(--text);}
+  .rc-files{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .rc-file{border:1px solid var(--border);border-radius:8px;padding:8px 10px;display:grid;grid-template-columns:1fr auto;gap:6px 8px;align-items:center;}
+  .rc-file .rc-name{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .rc-file .rc-meta{grid-column:1/-1;font-size:11px;color:var(--text-muted);}
+  .rc-file select{grid-column:1/-1;width:100%;font-size:12.5px;padding:6px 8px;}
+  .rc-file .rc-x{padding:2px 8px;font-size:12px;}
+  .rc-file.needs-acc select{border-color:var(--warning);}
+  .rc-summary{margin-top:12px;font-size:12px;line-height:1.5;}
+  .rc-acc{border-top:1px solid var(--border);padding:8px 0;}
+  .rc-acc:first-child{border-top:0;}
+  .rc-acc-head{display:flex;justify-content:space-between;gap:8px;font-weight:600;font-size:12.5px;}
+  .rc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;}
+  .rc-chip{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--surface-2);color:var(--text-muted);}
+  .rc-chip.add{background:var(--gain-bg);color:var(--gain);}
+  .rc-chip.fix{background:var(--warning-bg);color:var(--warning);}
+  .rc-chip.flag{background:var(--loss-bg);color:var(--loss);}
+  .rc-acc details{margin-top:6px;}
+  .rc-acc summary{cursor:pointer;font-size:11.5px;color:var(--text-muted);}
+  .rc-list{list-style:none;margin:6px 0 0;padding:0;font-size:11.5px;display:flex;flex-direction:column;gap:4px;}
+  .rc-list li{font-family:'IBM Plex Mono',monospace;line-height:1.45;word-break:break-word;}
+  .rc-list .old{color:var(--loss);text-decoration:line-through;}
+  .rc-list .new{color:var(--gain);}
 </style>
 </head>
 <body>
@@ -1105,6 +1131,23 @@
           <button id="resetBtn" class="btn-danger">Erase all data</button>
         </div>
         <p class="sync-hint" id="storageUsage"></p>
+      </div>
+
+      <div class="card" id="reconCard">
+        <div class="card-head"><h2>Broker reconciliation</h2></div>
+        <label class="rc-drop" id="reconDrop" for="reconFile">
+          Drop broker trade-history CSVs here, or click to choose<br>
+          <span style="font-size:11px;">One file per account · you can add several at once</span>
+        </label>
+        <input type="file" id="reconFile" accept=".csv,text/csv" multiple style="display:none;">
+        <ul class="rc-files" id="reconFileList"></ul>
+        <div class="util-row" style="margin-top:10px;">
+          <button id="reconRunBtn" class="btn-primary" disabled>Reconcile</button>
+          <button id="reconUndoBtn" class="btn-ghost" style="display:none;">Undo</button>
+          <button id="reconClearBtn" class="btn-ghost" style="display:none;">Clear</button>
+        </div>
+        <div class="rc-summary" id="reconResult"></div>
+        <p class="sync-hint">Fixes entry, exit, size, side, date, fee and P&amp;L to match the broker, and adds trades the journal is missing. Your analysis, checklist, notes and screenshots are never touched. Journal trades the broker file doesn't contain are only flagged, never deleted.</p>
       </div>
 
       <div class="card">
@@ -4407,6 +4450,311 @@
       discipline.replace('<div class="card st-section">', '<div class="card">') + "</div>" +
       dist + '<div class="st-2col st-section">' + monthly + weekday + "</div>";
   }
+
+  // ---------- Broker reconciliation ----------
+  // Upload one or more broker trade-history CSVs (Symbol, Side, Qty, Fill
+  // Price, Profit, Swap, Date/Time, Order ID, Commission, Trade ID,
+  // Position ID), pick the account each belongs to, then Reconcile.
+  // Fills are paired into round-trip trades by Position ID, then matched to
+  // journal trades. Broker numbers win for entry/exit/size/side/date/fee/P&L.
+  // Each journal trade it confirms gets a brokerPos tag so later runs match
+  // it exactly. A snapshot is kept so the last run can be undone.
+  var reconFiles = [];
+  var reconUndo = null;
+  var elReconFile = document.getElementById("reconFile");
+  var elReconDrop = document.getElementById("reconDrop");
+  var elReconList = document.getElementById("reconFileList");
+  var elReconRun = document.getElementById("reconRunBtn");
+  var elReconUndo = document.getElementById("reconUndoBtn");
+  var elReconClear = document.getElementById("reconClearBtn");
+  var elReconResult = document.getElementById("reconResult");
+
+  function r2(n){ return Math.round(n * 100) / 100; }
+  function parseCsvText(text){
+    var rows = [], row = [], cell = "", q = false;
+    text = text.replace(/^﻿/, "");
+    for(var i = 0; i < text.length; i++){
+      var c = text[i];
+      if(q){
+        if(c === '"'){ if(text[i+1] === '"'){ cell += '"'; i++; } else q = false; }
+        else cell += c;
+      } else if(c === '"') q = true;
+      else if(c === ","){ row.push(cell); cell = ""; }
+      else if(c === "\n" || c === "\r"){
+        if(c === "\r" && text[i+1] === "\n") i++;
+        row.push(cell); cell = "";
+        if(row.length > 1 || row[0] !== "") rows.push(row);
+        row = [];
+      } else cell += c;
+    }
+    row.push(cell);
+    if(row.length > 1 || row[0] !== "") rows.push(row);
+    return rows;
+  }
+  // "10/08/2026, 22:01:32" (MM/DD/YYYY) -> sortable key + journal date
+  function parseBrokerTime(s){
+    var m = /(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(s || "");
+    if(!m) return null;
+    var p = function(x){ return String(x).padStart(2, "0"); };
+    var date = m[3] + "-" + p(m[1]) + "-" + p(m[2]);
+    return { date: date, key: date + " " + p(m[4]) + ":" + m[5] + ":" + p(m[6] || 0) };
+  }
+  function parseBrokerCsv(text){
+    var rows = parseCsvText(text);
+    if(rows.length < 2) throw new Error("The file has no trade rows.");
+    var head = rows[0].map(function(h){ return h.trim().toLowerCase(); });
+    function col(){
+      for(var i = 0; i < arguments.length; i++){ var k = head.indexOf(arguments[i]); if(k > -1) return k; }
+      return -1;
+    }
+    var C = { sym: col("symbol"), side: col("side"), qty: col("qty", "quantity", "volume"), px: col("fill price", "price"),
+      profit: col("profit"), swap: col("swap"), time: col("date/time", "time", "date"), comm: col("commission"),
+      tid: col("trade id"), pid: col("position id") };
+    var missing = ["sym", "side", "qty", "px", "profit", "time", "pid"].filter(function(k){ return C[k] < 0; });
+    if(missing.length) throw new Error("This doesn't look like a broker trade-history export (missing columns).");
+    var num = function(r, k){ if(C[k] < 0) return 0; var v = parseFloat(String(r[C[k]]).replace(/[^0-9.\-eE]/g, "")); return isNaN(v) ? 0 : v; };
+    var fills = [];
+    rows.slice(1).forEach(function(r){
+      var t = parseBrokerTime(r[C.time]);
+      var side = String(r[C.side] || "").trim().toLowerCase();
+      if(!t || (side !== "buy" && side !== "sell")) return;
+      fills.push({ symbol: String(r[C.sym]).trim().toUpperCase(), sgn: side === "buy" ? 1 : -1, qty: r2(num(r, "qty")),
+        px: num(r, "px"), profit: num(r, "profit"), swap: num(r, "swap"), comm: num(r, "comm"),
+        date: t.date, key: t.key, tid: C.tid > -1 ? parseInt(r[C.tid], 10) || 0 : 0, pid: String(r[C.pid]).trim() });
+    });
+    if(!fills.length) throw new Error("No buy/sell fills found in the file.");
+    fills.sort(function(a, b){ return a.key < b.key ? -1 : a.key > b.key ? 1 : a.tid - b.tid; });
+    return fills;
+  }
+  // Pair fills into round-trip positions. A fill closes the open lot with the
+  // same Position ID; a fill carrying profit with no such lot closes the
+  // oldest opposite lot (netting flip); anything left over opens a lot.
+  function buildBrokerPositions(fills){
+    var book = {}, out = [];
+    function close(L, f, m, pf){
+      var frac = m / f.qty; if(pf === undefined) pf = frac;
+      var comm = L.comm * m / L.qty + f.comm * frac, swap = f.swap * pf;
+      out.push({ symbol: f.symbol, side: L.sgn > 0 ? "long" : "short", date: L.date, entry: L.px, exit: f.px, size: r2(m),
+        pnl: r2(f.profit * pf + swap + comm), fee: r2(-comm - swap), pos: L.pid, closeDate: f.date });
+      L.rem = r2(L.rem - m);
+    }
+    fills.forEach(function(f){
+      var lots = book[f.symbol] || (book[f.symbol] = []), q = f.qty;
+      var same = lots.filter(function(L){ return L.pid === f.pid && L.sgn !== f.sgn; })[0];
+      if(same){ var m = Math.min(q, same.rem); close(same, f, m); q = r2(q - m); }
+      else if(f.profit !== 0){
+        var opp = lots.filter(function(L){ return L.sgn !== f.sgn; })[0];
+        if(opp){ var m2 = Math.min(q, opp.rem); close(opp, f, m2, 1); q = r2(q - m2); }
+        else {
+          // the opening fill is older than this export: keep what we know
+          out.push({ symbol: f.symbol, side: f.sgn < 0 ? "long" : "short", orphan: true, date: null, entry: null, exit: f.px,
+            size: f.qty, pos: f.pid, closeDate: f.date });
+          q = 0;
+        }
+      }
+      book[f.symbol] = lots.filter(function(L){ return L.rem > 1e-9; });
+      if(q > 1e-9) book[f.symbol].push({ pid: f.pid, sgn: f.sgn, px: f.px, qty: q, rem: q, comm: f.comm * q / f.qty, date: f.date });
+    });
+    return out;
+  }
+  function closedJournalTrades(accountId){
+    return data.trades.filter(function(t){
+      return t.accountId === accountId && t.symbol && typeof t.entry === "number" && typeof t.exit === "number" && typeof t.size === "number";
+    });
+  }
+  function matchScore(t, p){
+    if(t.symbol !== p.symbol) return Infinity;
+    if(t.brokerPos && t.brokerPos === p.pos) return -1;
+    var rel = function(a, b){ return Math.abs(a - b) / Math.abs(b || 1); };
+    var s = (p.side === t.side ? 0 : 5) + Math.abs(p.size - t.size) * 20 + rel(p.exit, t.exit) * 1000;
+    if(!p.orphan) s += rel(p.entry, t.entry) * 1000 + (p.date === t.date ? 0 : 1);
+    return s;
+  }
+  function guessReconAccount(positions){
+    var best = "", bestN = 0;
+    data.accounts.forEach(function(a){
+      var trades = closedJournalTrades(a.id), n = 0;
+      positions.forEach(function(p){
+        if(trades.some(function(t){ return matchScore(t, p) < 1; })) n++;
+      });
+      if(n > bestN){ bestN = n; best = a.id; }
+    });
+    return best;
+  }
+  function reconcileAccount(accountId, positions){
+    var trades = closedJournalTrades(accountId), cands = [];
+    trades.forEach(function(t, i){
+      if(t.brokerPos && !positions.some(function(p){ return p.pos === t.brokerPos; })) return;
+      positions.forEach(function(p, k){
+        if(t.brokerPos && t.brokerPos !== p.pos) return;
+        var s = matchScore(t, p); if(s <= 8) cands.push([s, i, k]);
+      });
+    });
+    cands.sort(function(a, b){ return a[0] - b[0]; });
+    var mi = {}, mk = {}, res = { matched: 0, fixes: [], adds: [], flags: [], skipped: [] };
+    cands.forEach(function(c){ if(mi[c[1]] === undefined && mk[c[2]] === undefined){ mi[c[1]] = c[2]; mk[c[2]] = c[1]; } });
+    trades.forEach(function(t, i){
+      if(mi[i] === undefined) return;
+      var p = positions[mi[i]], ch = [], x_tidy = [];
+      var fields = p.orphan ? ["side", "exit", "size"] : ["date", "side", "entry", "exit", "size", "fee", "pnl"];
+      fields.forEach(function(f){
+        var a = t[f], b = p[f];
+        var tol = (f === "entry" || f === "exit") ? 1e-7 : (f === "size" ? 0.001 : 0.015); // a cent of slack for split-commission rounding
+        var diff = typeof b === "number" ? (typeof a !== "number" || Math.abs(a - b) > tol) : a !== b;
+        if(diff) ch.push({ f: f, from: a, to: b });
+        else if(typeof a === "number" && (f === "pnl" || f === "fee") && r2(a) !== a) x_tidy.push([f, r2(a)]); // strip float noise like 30.959999 silently
+      });
+      res.matched++;
+      res.fixes.push({ trade: t, changes: ch, tidy: x_tidy, pos: p.pos });
+    });
+    positions.forEach(function(p, k){
+      if(mk[k] !== undefined) return;
+      if(p.orphan) res.skipped.push(p); else res.adds.push(p);
+    });
+    // Only flag journal trades that fall inside the export's date window
+    var dates = positions.map(function(p){ return p.date || p.closeDate; }).concat(positions.map(function(p){ return p.closeDate; })).sort();
+    var lo = dates[0], hi = dates[dates.length - 1];
+    trades.forEach(function(t, i){
+      if(mi[i] === undefined && t.date >= lo && t.date <= hi) res.flags.push(t);
+    });
+    res.range = [lo, hi];
+    return res;
+  }
+
+  function fmtNum(v){ return (v === null || v === undefined || v === "") ? "—" : (typeof v === "number" ? String(r2(v) === v ? v : +v.toFixed(5)) : String(v)); }
+  function posLine(p){
+    return p.date + " " + p.symbol + " " + (p.side === "long" ? "Long" : "Short") + " " + p.size + " @ " + p.entry + " → " + p.exit + " · " + money(p.pnl);
+  }
+  function tradeLine(t){
+    return t.date + " " + t.symbol + " " + (t.side === "long" ? "Long" : "Short") + " " + t.size + " @ " + t.entry + " → " + t.exit;
+  }
+  function renderReconFiles(){
+    elReconList.innerHTML = "";
+    reconFiles.forEach(function(f, idx){
+      var li = document.createElement("li");
+      li.className = "rc-file" + (f.accountId ? "" : " needs-acc");
+      var opts = '<option value="">Choose account…</option>' + data.accounts.map(function(a){
+        return '<option value="' + escapeHtml(a.id) + '"' + (a.id === f.accountId ? " selected" : "") + '>' + escapeHtml(a.name) + '</option>';
+      }).join("");
+      li.innerHTML = '<span class="rc-name" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</span>' +
+        '<button class="rc-x btn-ghost" aria-label="Remove file">✕</button>' +
+        '<span class="rc-meta">' + f.fills + ' fills · ' + f.positions.length + ' trades · ' + f.range[0] + ' → ' + f.range[1] +
+        (f.guessed ? ' · account auto-detected' : (f.accountId ? '' : ' · pick the account')) + '</span>' +
+        '<select aria-label="Account for ' + escapeHtml(f.name) + '">' + opts + '</select>';
+      li.querySelector("select").addEventListener("change", function(e){ f.accountId = e.target.value; f.guessed = false; renderReconFiles(); });
+      li.querySelector(".rc-x").addEventListener("click", function(){ reconFiles.splice(idx, 1); renderReconFiles(); });
+      elReconList.appendChild(li);
+    });
+    elReconRun.disabled = !reconFiles.length || reconFiles.some(function(f){ return !f.accountId; });
+    elReconClear.style.display = reconFiles.length ? "" : "none";
+  }
+  function addReconFiles(fileList){
+    var list = Array.prototype.slice.call(fileList || []);
+    if(!list.length) return;
+    var errors = [];
+    Promise.all(list.map(function(file){
+      return new Promise(function(resolve){
+        var reader = new FileReader();
+        reader.onload = function(e){
+          try{
+            var fills = parseBrokerCsv(e.target.result);
+            var positions = buildBrokerPositions(fills);
+            var ds = fills.map(function(x){ return x.date; }).sort();
+            var acc = guessReconAccount(positions);
+            reconFiles = reconFiles.filter(function(f){ return f.name !== file.name; });
+            reconFiles.push({ name: file.name, fills: fills.length, positions: positions, range: [ds[0], ds[ds.length - 1]], accountId: acc, guessed: !!acc });
+          }catch(err){ errors.push(file.name + ": " + err.message); }
+          resolve();
+        };
+        reader.onerror = function(){ errors.push(file.name + ": couldn't be read."); resolve(); };
+        reader.readAsText(file);
+      });
+    })).then(function(){
+      renderReconFiles();
+      if(errors.length) alert("Some files were skipped:\n\n" + errors.join("\n"));
+    });
+  }
+  function renderReconResult(results){
+    var tot = { add: 0, fix: 0, flag: 0 };
+    var html = results.map(function(r){
+      var acc = accountById(r.accountId), real = r.res.fixes.filter(function(x){ return x.changes.length; });
+      tot.add += r.res.adds.length; tot.fix += real.length; tot.flag += r.res.flags.length;
+      var parts = '<div class="rc-acc"><div class="rc-acc-head"><span>' + escapeHtml(acc ? acc.name : r.accountId) + '</span>' +
+        '<span class="mono" style="font-weight:400;color:var(--text-muted);">' + r.res.range[0] + ' → ' + r.res.range[1] + '</span></div>' +
+        '<div class="rc-chips"><span class="rc-chip">' + r.res.matched + ' matched</span>' +
+        (r.res.adds.length ? '<span class="rc-chip add">+' + r.res.adds.length + ' added</span>' : '') +
+        (real.length ? '<span class="rc-chip fix">' + real.length + ' corrected</span>' : '') +
+        (r.res.flags.length ? '<span class="rc-chip flag">' + r.res.flags.length + ' not in broker file</span>' : '') +
+        (r.res.skipped.length ? '<span class="rc-chip">' + r.res.skipped.length + ' skipped</span>' : '') + '</div>';
+      if(r.res.adds.length) parts += '<details open><summary>Added</summary><ul class="rc-list">' + r.res.adds.map(function(p){ return '<li>' + escapeHtml(posLine(p)) + '</li>'; }).join("") + '</ul></details>';
+      if(real.length) parts += '<details><summary>Corrected</summary><ul class="rc-list">' + real.map(function(x){
+        return '<li>' + escapeHtml(tradeLine(x.before)) + '<br>' + x.changes.map(function(c){
+          return c.f + ': <span class="old">' + escapeHtml(fmtNum(c.from)) + '</span> <span class="new">' + escapeHtml(fmtNum(c.to)) + '</span>';
+        }).join(" · ") + '</li>';
+      }).join("") + '</ul></details>';
+      if(r.res.flags.length) parts += '<details open><summary>In journal, not in broker file (check or delete manually)</summary><ul class="rc-list">' +
+        r.res.flags.map(function(t){ return '<li>' + escapeHtml(tradeLine(t)) + '</li>'; }).join("") + '</ul></details>';
+      if(r.res.skipped.length) parts += '<details><summary>Skipped (opened before this export starts)</summary><ul class="rc-list">' +
+        r.res.skipped.map(function(p){ return '<li>' + escapeHtml(p.closeDate + " " + p.symbol + " close " + p.size + " @ " + p.exit) + '</li>'; }).join("") + '</ul></details>';
+      return parts + '</div>';
+    }).join("");
+    var head = (tot.add || tot.fix) ? '<strong>Journal updated.</strong> ' + tot.add + ' added, ' + tot.fix + ' corrected' + (tot.flag ? ', ' + tot.flag + ' to review' : '') + '.'
+      : '<strong>Everything already matches the broker.</strong>' + (tot.flag ? ' ' + tot.flag + ' to review.' : '');
+    elReconResult.innerHTML = '<p style="margin:0 0 6px;">' + head + '</p>' + html;
+  }
+  function runReconcile(){
+    var before = JSON.stringify(data.trades), results = [];
+    reconFiles.forEach(function(f){
+      var res = reconcileAccount(f.accountId, f.positions);
+      res.fixes.forEach(function(x){
+        x.before = { date: x.trade.date, symbol: x.trade.symbol, side: x.trade.side, size: x.trade.size, entry: x.trade.entry, exit: x.trade.exit };
+        x.changes.forEach(function(c){ x.trade[c.f] = c.to; });
+        x.tidy.forEach(function(c){ x.trade[c[0]] = c[1]; });
+        x.trade.brokerPos = x.pos;
+      });
+      res.adds.forEach(function(p){
+        data.trades.push({ id: uid(), date: p.date, symbol: p.symbol, side: p.side, accountId: f.accountId, analysis: "",
+          checklistModel: currentChecklistModel, checklist: {}, entry: p.entry, exit: p.exit, size: p.size, fee: p.fee,
+          notes: "", pnl: p.pnl, brokerPos: p.pos });
+      });
+      results.push({ accountId: f.accountId, res: res });
+    });
+    try{ saveData(); }
+    catch(err){
+      data.trades = JSON.parse(before);
+      alert("Couldn't save — your browser's storage is full. Nothing was changed. Export a backup and remove some older screenshots, then try again.");
+      return;
+    }
+    reconUndo = before;
+    elReconUndo.style.display = "";
+    renderAll();
+    renderReconResult(results);
+    var added = results.reduce(function(n, r){ return n + r.res.adds.length; }, 0);
+    showToast("Reconciled · " + added + " trade" + (added === 1 ? "" : "s") + " added");
+  }
+
+  elReconFile.addEventListener("change", function(){ addReconFiles(elReconFile.files); elReconFile.value = ""; });
+  ["dragenter", "dragover"].forEach(function(ev){
+    elReconDrop.addEventListener(ev, function(e){ e.preventDefault(); elReconDrop.classList.add("over"); });
+  });
+  ["dragleave", "drop"].forEach(function(ev){
+    elReconDrop.addEventListener(ev, function(e){ e.preventDefault(); elReconDrop.classList.remove("over"); });
+  });
+  elReconDrop.addEventListener("drop", function(e){ addReconFiles(e.dataTransfer && e.dataTransfer.files); });
+  elReconRun.addEventListener("click", runReconcile);
+  elReconClear.addEventListener("click", function(){ reconFiles = []; elReconResult.innerHTML = ""; renderReconFiles(); });
+  elReconUndo.addEventListener("click", function(){
+    if(!reconUndo) return;
+    if(!confirm("Undo the last reconcile? Trades go back to how they were just before it ran.")) return;
+    var current = data.trades;
+    data.trades = JSON.parse(reconUndo);
+    try{ saveData(); }catch(err){ data.trades = current; alert("Couldn't undo — storage is full."); return; }
+    reconUndo = null;
+    elReconUndo.style.display = "none";
+    elReconResult.innerHTML = "<p style=\"margin:0;\">Last reconcile undone.</p>";
+    renderAll();
+    renderReconFiles();
+  });
 
   function renderAll(){
     if(currentView === "stats") renderStatsView();
