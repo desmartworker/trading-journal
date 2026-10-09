@@ -286,6 +286,11 @@
   .stat .value.up{color:var(--gain);}
   .stat .value.down{color:var(--loss);}
 
+  /* Top row: P&L calendar + equity curve */
+  .top-row{display:grid;grid-template-columns:minmax(280px,1fr) minmax(0,2fr);gap:22px;align-items:stretch;margin-bottom:20px;}
+  .top-row > .card{margin-bottom:0;min-width:0;}
+  @media (max-width:880px){ .top-row{grid-template-columns:minmax(0,1fr);} }
+
   /* Calendar heatmap */
   .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
   .cal-nav .label{font-size:13px;font-weight:600;font-family:'Fraunces',serif;}
@@ -524,6 +529,18 @@
     border-radius:20px; padding:0 6px; margin-left:6px; white-space:nowrap; vertical-align:1px;
   }
   .checklist-item.checked{color:var(--text);}
+  .checklist-lock{
+    font-size:12px; line-height:1.5; border-radius:8px; padding:8px 10px; margin-bottom:10px;
+    background:var(--surface); border:1px solid var(--border); color:var(--text);
+  }
+  .checklist-lock.broke{background:var(--loss-bg); border-color:var(--loss);}
+  .checklist-lock.kept{background:var(--gain-bg); border-color:var(--gain);}
+  .checklist-lock small{display:block; color:var(--text-muted); margin-top:2px;}
+  .rulebreak-pill{
+    display:inline-block;margin-left:6px;font-size:9.5px;font-weight:700;letter-spacing:.04em;
+    padding:1px 6px;border-radius:20px;background:var(--loss);color:#ffffff;
+    text-transform:uppercase;vertical-align:1px;white-space:nowrap;
+  }
   .checklist-hint{font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.5;}
   .cl-manage{margin-top:10px;border-top:1px dashed var(--border);padding-top:8px;}
   .cl-manage summary{cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-muted);user-select:none;}
@@ -849,27 +866,66 @@
 <main>
 <div id="viewJournal">
 
-  <div class="card" id="equityCard">
+  <div class="card" id="newsCard">
     <div class="card-head">
-      <h2>Equity curve</h2>
-      <span class="eyebrow" id="equityRange">—</span>
-    </div>
-    <div class="equity-stats">
-      <div class="equity-stat">
-        <div class="label">Current equity</div>
-        <div class="value mono" id="eqCurrent">$0.00</div>
-      </div>
-      <div class="equity-stat">
-        <div class="label">Growth</div>
-        <div class="value mono" id="eqGrowth">—</div>
-      </div>
-      <div class="equity-stat">
-        <div class="label">Max drawdown</div>
-        <div class="value mono down" id="eqDrawdown">—</div>
+      <h2>Economic calendar</h2>
+      <div class="news-head-right">
+        <span class="eyebrow">US · Euro Area · live</span>
+        <button id="tvToggle" class="btn-ghost news-refresh" type="button" aria-expanded="false" aria-controls="tvBody">Show calendar</button>
       </div>
     </div>
-    <div id="equityChartWrap"><svg id="equityChart" viewBox="0 0 1000 260" preserveAspectRatio="none"></svg></div>
-    <div class="empty-state" id="equityEmpty" style="display:none;">No closed trades yet — your equity curve will appear here once you log some results.</div>
+    <div class="kz-strip" id="kzStrip" aria-live="polite"></div>
+    <div class="fed-box" id="fedBox"></div>
+    <div id="tvBody">
+      <div class="news-toolbar">
+        <div class="news-filters" id="tvFilters"></div>
+      </div>
+      <div class="tv-legend">
+        <span>Numbers on each row, left to right: <b>Actual</b> · <b>Forecast</b> · <b>Prior</b>. Upcoming events have no Actual yet.</span>
+        <a href="https://www.tradingview.com/economic-calendar/" target="_blank" rel="noopener">Full calendar with headers ↗</a>
+      </div>
+      <div class="tv-calendar-wrap" id="tvCalendarWrap"></div>
+    <p class="sync-hint" id="newsStatus"></p>
+    </div>
+  </div>
+
+  <div class="top-row">
+  <div class="card" id="calendarCard">
+    <div class="cal-nav">
+      <button id="calPrev">←</button>
+      <div class="label" id="calLabel">—</div>
+      <button id="calNext">→</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--gain);"></span>Gain day</span>
+      <span><span class="swatch" style="background:var(--loss);"></span>Loss day</span>
+      <span><span class="swatch" style="background:var(--surface-2);"></span>No trades</span>
+    </div>
+  </div>
+
+    <div class="card" id="equityCard">
+      <div class="card-head">
+        <h2>Equity curve</h2>
+        <span class="eyebrow" id="equityRange">—</span>
+      </div>
+      <div class="equity-stats">
+        <div class="equity-stat">
+          <div class="label">Current equity</div>
+          <div class="value mono" id="eqCurrent">$0.00</div>
+        </div>
+        <div class="equity-stat">
+          <div class="label">Growth</div>
+          <div class="value mono" id="eqGrowth">—</div>
+        </div>
+        <div class="equity-stat">
+          <div class="label">Max drawdown</div>
+          <div class="value mono down" id="eqDrawdown">—</div>
+        </div>
+      </div>
+      <div id="equityChartWrap"><svg id="equityChart" viewBox="0 0 1000 260" preserveAspectRatio="none"></svg></div>
+      <div class="empty-state" id="equityEmpty" style="display:none;">No closed trades yet — your equity curve will appear here once you log some results.</div>
+    </div>
   </div>
 
   <div class="grid">
@@ -883,29 +939,6 @@
         <button id="nextDay" class="btn-ghost" aria-label="Next day">→</button>
         <input type="date" id="datePicker">
         <button id="todayBtn" class="btn-ghost">Today</button>
-      </div>
-
-      <div class="card" id="newsCard">
-        <div class="card-head">
-          <h2>Economic calendar</h2>
-          <div class="news-head-right">
-            <span class="eyebrow">US · Euro Area · live</span>
-            <button id="tvToggle" class="btn-ghost news-refresh" type="button" aria-expanded="false" aria-controls="tvBody">Show calendar</button>
-          </div>
-        </div>
-        <div class="kz-strip" id="kzStrip" aria-live="polite"></div>
-        <div class="fed-box" id="fedBox"></div>
-        <div id="tvBody">
-          <div class="news-toolbar">
-            <div class="news-filters" id="tvFilters"></div>
-          </div>
-          <div class="tv-legend">
-            <span>Numbers on each row, left to right: <b>Actual</b> · <b>Forecast</b> · <b>Prior</b>. Upcoming events have no Actual yet.</span>
-            <a href="https://www.tradingview.com/economic-calendar/" target="_blank" rel="noopener">Full calendar with headers ↗</a>
-          </div>
-          <div class="tv-calendar-wrap" id="tvCalendarWrap"></div>
-        <p class="sync-hint" id="newsStatus"></p>
-        </div>
       </div>
 
       <div class="card">
@@ -938,6 +971,7 @@
                   <div class="toggle-group" id="checklistModelToggle" role="group" aria-label="Checklist model"><!-- filled by JS --></div>
                   <button type="button" class="btn-ghost cl-manage-btn" id="clManageBtn" aria-controls="clManage">⚙ Manage models</button>
                 </div>
+                <div class="checklist-lock" id="checklistLock" hidden></div>
                 <div class="checklist-scoreboard" id="checklistScoreboard"><!-- filled by JS --></div>
                 <div id="checklistGrid"><!-- filled by JS --></div>
                 <div class="checklist-hint" id="checklistHint"><!-- filled by JS --></div>
@@ -1106,19 +1140,6 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="cal-nav">
-          <button id="calPrev">←</button>
-          <div class="label" id="calLabel">—</div>
-          <button id="calNext">→</button>
-        </div>
-        <div class="cal-grid" id="calGrid"></div>
-        <div class="legend">
-          <span><span class="swatch" style="background:var(--gain);"></span>Gain day</span>
-          <span><span class="swatch" style="background:var(--loss);"></span>Loss day</span>
-          <span><span class="swatch" style="background:var(--surface-2);"></span>No trades</span>
-        </div>
-      </div>
 
       <div class="card">
         <div class="card-head"><h2>Backup</h2></div>
@@ -1465,6 +1486,7 @@
     return c;
   }
   var currentChecklist = defaultChecklist();
+  var editingSnapshot = null; // checklistAtEntry of the saved trade being edited, if any
 
   // Trades saved before models existed have no checklistModel field. If any
   // of their saved keys belong to the previous model, open them in it.
@@ -1580,6 +1602,38 @@
     renderChecklistScoreboard();
     renderChecklistGrid();
     document.getElementById("checklistHint").textContent = CHECKLIST_MODELS[currentChecklistModel].hint;
+    renderChecklistLock();
+  }
+
+  // Required-item count for a saved snapshot of ticks ({model, ticks}).
+  function snapshotTally(snap, ctx){
+    var model = snap && CHECKLIST_MODELS[snap.model];
+    if(!model) return null;
+    var t = { req: 0, reqMet: 0 };
+    model.items.forEach(function(it){
+      if(!itemVisible(it, ctx) || !itemRequired(it, ctx)) return;
+      t.req++;
+      if(snap.ticks && snap.ticks[it.id]) t.reqMet++;
+    });
+    t.missing = t.req - t.reqMet;
+    t.allMet = t.missing <= 0;
+    t.modelName = model.toggleLabel;
+    return t;
+  }
+
+  // Shown while editing a trade whose checklist was locked at entry.
+  function renderChecklistLock(){
+    var el = document.getElementById("checklistLock");
+    if(!el) return;
+    if(!editingSnapshot){ el.hidden = true; el.innerHTML = ""; return; }
+    var t = snapshotTally(editingSnapshot, checklistCtx());
+    var when = "";
+    try{ when = new Date(editingSnapshot.at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); }catch(e){}
+    el.hidden = false;
+    el.className = "checklist-lock" + (t ? (t.allMet ? " kept" : " broke") : "");
+    el.innerHTML = "🔒 <b>Locked at entry" + (when ? " · " + escapeHtml(when) : "") + "</b> — " +
+      (t ? escapeHtml(t.modelName) + ": required " + t.reqMet + "/" + t.req + (t.allMet ? " · all met" : " · " + t.missing + " missing") : "model no longer exists") +
+      "<small>Statistics use these ticks. Changes you make now are saved on the trade but don’t count toward “Checklist followed?”.</small>";
   }
 
   // ---------- Checklist models: export / import ----------
@@ -1764,12 +1818,27 @@
     return out;
   }
 
-  // Regenerates the Analysis / plan textarea from the checklist state. Only
-  // called when a checkbox actually changes (not on load/edit/model switch)
-  // so it never clobbers analysis text that was typed or saved before the
-  // checklist was touched in this session.
+  // Keeps a checklist summary block at the top of the Analysis / plan
+  // textarea, between two marker lines, and leaves everything else the
+  // trader typed alone. Called only when a checkbox changes.
+  var CL_BLOCK_START = "── Checklist ──";
+  var CL_BLOCK_END = "── End checklist ──";
   function updateAnalysisFromChecklist(){
-    elAnalysis.value = buildChecklistSummaryText();
+    var block = CL_BLOCK_START + "\n" + buildChecklistSummaryText() + "\n" + CL_BLOCK_END;
+    var text = elAnalysis.value;
+    var s = text.indexOf(CL_BLOCK_START), e = text.indexOf(CL_BLOCK_END);
+    if(s > -1 && e > s){
+      elAnalysis.value = text.slice(0, s) + block + text.slice(e + CL_BLOCK_END.length);
+      return;
+    }
+    // Older trades: the whole field was overwritten with an unmarked summary.
+    // Strip that summary (through its last ✔/☐ line) and keep anything after it.
+    if(/^CONFLUENCE CHECKLIST \(/.test(text)){
+      var lines = text.split("\n"), last = 0;
+      lines.forEach(function(l, i){ if(/^[✔☐] /.test(l)) last = i; });
+      text = lines.slice(last + 1).join("\n").replace(/^\s+/, "");
+    }
+    elAnalysis.value = text ? block + "\n\n" + text : block;
   }
 
   // ---------- Account helpers ----------
@@ -2084,6 +2153,7 @@
   }
 
   function resetForm(){
+    editingSnapshot = null;
     elOffSession.checked = false;
     elOffSessionWarn.hidden = true;
     offSessionTouched = false;
@@ -2125,7 +2195,29 @@
     maybeFlagOffSession();
     var offSession = elOffSession.checked;
 
-    var trade = {
+    // Entry gate + checklist lock. The ticks are snapshotted the first time a
+    // trade is saved with an entry price, and Statistics judge the trade by
+    // that snapshot. Trades that already had an entry before this existed
+    // get no snapshot, so their stats stay exactly as they were.
+    var prev = editingId ? data.trades.find(function(t){ return t.id === editingId; }) : null;
+    var prevHadEntry = !!(prev && prev.entry !== null && prev.entry !== undefined && prev.entry !== "");
+    var takingSnapshot = entryVal !== null && !(prev && prev.checklistAtEntry) && !prevHadEntry;
+    var ruleBreak = prev ? !!prev.ruleBreak : false;
+    if(takingSnapshot){
+      var gate = checklistTally(checklistCtx());
+      if(!gate.allMet){
+        var ok = confirm("❌ " + gate.missing + " of " + gate.req + " required checklist items are missing — this is a NO TRADE.\n\n" +
+          "OK = log it anyway, tagged as a rule break\nCancel = go back to the checklist");
+        if(!ok) return;
+        ruleBreak = true;
+      } else {
+        ruleBreak = false;
+      }
+    }
+
+    // Start from the saved trade so fields this form doesn't edit
+    // (broker tags, the entry snapshot, anything a newer version adds) are kept.
+    var trade = Object.assign({}, prev || {}, {
       id: editingId || uid(),
       date: selectedDate,
       symbol: symbol,
@@ -2140,8 +2232,12 @@
       fee: feeVal,
       notes: elResultNotes.value.trim(),
       pnl: pnl
-    };
-    if(offSession) trade.offSession = true;
+    });
+    if(offSession) trade.offSession = true; else delete trade.offSession;
+    if(takingSnapshot){
+      trade.checklistAtEntry = { model: currentChecklistModel, ticks: checklistForSave(), at: new Date().toISOString() };
+    }
+    if(ruleBreak) trade.ruleBreak = true; else delete trade.ruleBreak;
     var savedOffSession = offSession;
     var previousTrades = data.trades.slice();
     if(editingId){
@@ -2159,7 +2255,11 @@
     }
     resetForm();
     renderAll();
-    showToast(savedOffSession ? "Saved \u00b7 tagged Off-session (outside killzones)" : "Trade saved", savedOffSession);
+    var toastParts = [];
+    if(trade.ruleBreak && takingSnapshot) toastParts.push("tagged Rule break");
+    if(savedOffSession) toastParts.push("tagged Off-session (outside killzones)");
+    if(takingSnapshot && !trade.ruleBreak) toastParts.push("checklist locked at entry");
+    showToast(toastParts.length ? "Saved \u00b7 " + toastParts.join(" \u00b7 ") : "Trade saved", !!(savedOffSession || (trade.ruleBreak && takingSnapshot)));
   });
 
   elCancelEdit.addEventListener("click", resetForm);
@@ -2186,6 +2286,7 @@
     // so the trade's saved analysis text is left exactly as it was.
     currentChecklistModel = inferChecklistModel(t);
     currentChecklist = Object.assign(defaultChecklist(), t.checklist || {});
+    editingSnapshot = t.checklistAtEntry || null;
     setSide(t.side);
     setFormAccount(t.accountId || (data.accounts[0] ? data.accounts[0].id : null));
     renderChecklist();
@@ -2278,7 +2379,7 @@
       var sizeDisplay = (t.size === null || t.size === undefined) ? "—" : t.size;
       var feeDisplay = (t.fee === null || t.fee === undefined) ? "—" : money(t.fee);
       tr.innerHTML =
-        '<td><strong>'+escapeHtml(t.symbol)+'</strong>'+(t.offSession ? '<span class="offsession-pill" title="Entered outside the killzones">Off-session</span>' : '')+'</td>'+
+        '<td><strong>'+escapeHtml(t.symbol)+'</strong>'+(t.offSession ? '<span class="offsession-pill" title="Entered outside the killzones">Off-session</span>' : '')+(t.ruleBreak ? '<span class="rulebreak-pill" title="Entered with required checklist items missing">Rule break</span>' : '')+'</td>'+
         '<td>'+(t.side === "long" ? "Long" : "Short")+'</td>'+
         '<td>'+accountPillHtml(t.accountId)+'</td>'+
         '<td class="mono">'+entryDisplay+'</td>'+
@@ -3971,19 +4072,33 @@
   function cls(n){ return n > 0 ? "up" : (n < 0 ? "down" : ""); }
   function share(a, b){ return b ? (a / b * 100).toFixed(1) + "%" : "\u2014"; }
 
+  // The ticks Statistics judge a trade by: the snapshot taken when the entry
+  // was first saved, or (for trades from before the lock) the current ticks.
+  function statsChecklist(t){
+    if(t.checklistAtEntry && t.checklistAtEntry.ticks) return { checklistModel: t.checklistAtEntry.model, checklist: t.checklistAtEntry.ticks };
+    return { checklistModel: t.checklistModel, checklist: t.checklist };
+  }
+  function isBrokerAdded(t){
+    return !!t.brokerPos && (!t.checklist || !Object.keys(t.checklist).length) && !t.checklistAtEntry;
+  }
   function modelOf(t){
-    if(!t.checklist || !Object.keys(t.checklist).length) return "none";
-    if(t.checklistModel && !CHECKLIST_MODELS[t.checklistModel]) return "removed";
-    return inferChecklistModel(t);
+    var c = statsChecklist(t);
+    if(!c.checklist || !Object.keys(c.checklist).length) return "none";
+    if(c.checklistModel && !CHECKLIST_MODELS[c.checklistModel]) return "removed";
+    return inferChecklistModel(c);
   }
   // true / false when the checklist was used on this trade, null otherwise.
   function requiredMet(t){
-    if(modelOf(t) === "none" || modelOf(t) === "removed") return null;
-    if(!Object.keys(t.checklist).some(function(k){ return t.checklist[k]; })) return null;
-    var model = CHECKLIST_MODELS[inferChecklistModel(t)];
+    var m = modelOf(t);
+    if(m === "none" || m === "removed") return null;
+    var ck = statsChecklist(t).checklist;
+    // An empty checklist only counts as "not used" for trades from before the
+    // lock; a locked trade with nothing ticked had every required item missing.
+    if(!t.checklistAtEntry && !Object.keys(ck).some(function(k){ return ck[k]; })) return null;
+    var model = CHECKLIST_MODELS[m];
     var ctx = { symbol: String(t.symbol || "").toUpperCase(), side: t.side };
     var req = model.items.filter(function(it){ return itemVisible(it, ctx) && itemRequired(it, ctx); });
-    return req.every(function(it){ return !!t.checklist[it.id]; });
+    return req.every(function(it){ return !!ck[it.id]; });
   }
   function summarize(list){
     var n = list.length, w = 0, net = 0;
@@ -4092,11 +4207,18 @@
     });
     var removedList = closed.filter(function(t){ return modelOf(t) === "removed"; });
     if(removedList.length) st.models.push({ label: "Removed models", list: removedList });
-    st.models.push({ label: "No checklist", list: closed.filter(function(t){ return modelOf(t) === "none"; }) });
+    var brokerAdded = closed.filter(function(t){ return modelOf(t) === "none" && isBrokerAdded(t); });
+    if(brokerAdded.length) st.models.push({ label: "Added from broker file", list: brokerAdded });
+    st.models.push({ label: "No checklist", list: closed.filter(function(t){ return modelOf(t) === "none" && !isBrokerAdded(t); }) });
     st.compliance = [
       { label: "All required items met", list: closed.filter(function(t){ return requiredMet(t) === true; }) },
       { label: "Required items missing", list: closed.filter(function(t){ return requiredMet(t) === false; }) },
       { label: "Checklist not used", list: closed.filter(function(t){ return requiredMet(t) === null; }) }
+    ];
+    st.gate = [
+      { label: "Passed the gate (all required met)", list: closed.filter(function(t){ return t.checklistAtEntry && !t.ruleBreak; }) },
+      { label: "Rule break (gate overridden)", list: closed.filter(function(t){ return t.checklistAtEntry && t.ruleBreak; }) },
+      { label: "Before the gate existed", list: closed.filter(function(t){ return !t.checklistAtEntry; }) }
     ];
     st.sessions = [
       { label: "Off-session (outside killzones)", list: closed.filter(function(t){ return t.offSession; }) },
@@ -4326,6 +4448,7 @@
     var discipline = '<div class="card"><div class="card-head"><h2>Discipline</h2><span class="eyebrow">Do your rules pay?</span></div>' +
       '<div class="st-sub">By checklist model</div>' + emptyTable(groupHead, modelRows.map(escapeHtml)) +
       '<div class="st-sub">Checklist followed?</div>' + emptyTable(groupHead, ["All required items met", "Required items missing", "Checklist not used"]) +
+      '<div class="st-sub">Entry gate</div>' + emptyTable(groupHead, ["Passed the gate (all required met)", "Rule break (gate overridden)", "Before the gate existed"]) +
       '<div class="st-sub">Session</div>' + emptyTable(groupHead, ["Off-session (outside killzones)", "Not flagged"]) + '</div>';
     var dist = '<div class="card st-section"><div class="card-head"><h2>Distribution by symbol</h2></div>' +
       emptyTable(["Symbol", "Deals", "Buy / Sell", "Win rate", "Net P&amp;L"], [D]) + '</div>';
@@ -4436,8 +4559,9 @@
     var discipline = '<div class="card st-section"><div class="card-head"><h2>Discipline</h2><span class="eyebrow">Do your rules pay?</span></div>' +
       '<div class="st-sub">By checklist model</div>' + groupTable(st.models) +
       '<div class="st-sub">Checklist followed?</div>' + groupTable(st.compliance) +
+      '<div class="st-sub">Entry gate</div>' + groupTable(st.gate) +
       '<div class="st-sub">Session</div>' + groupTable(st.sessions) +
-      '<p class="st-note">\u201cChecklist followed\u201d uses the ticks saved on each trade: every required item for that trade\u2019s model, symbol and side. Off-session tagging started with the killzone check, so older trades show as \u201cNot flagged\u201d.</p></div>';
+      '<p class="st-note">\u201cChecklist followed\u201d uses the ticks locked when the entry was first saved (older trades use their saved ticks): every required item for that trade\u2019s model, symbol and side. The entry gate started with this version, so earlier trades show as \u201cBefore the gate existed\u201d. Off-session tagging started with the killzone check, so older trades show as \u201cNot flagged\u201d.</p></div>';
 
     var visuals = '<div class="st-visual">' +
       '<div class="card"><div class="card-head"><h2>Growth</h2><span class="eyebrow">balance after each closed trade</span></div>' + growthCurve(st) + '</div>' +
@@ -4785,4 +4909,3 @@
 </script>
 </body>
 </html>
-
