@@ -855,6 +855,74 @@
   .rc-list li{font-family:'IBM Plex Mono',monospace;line-height:1.45;word-break:break-word;}
   .rc-list .old{color:var(--loss);text-decoration:line-through;}
   .rc-list .new{color:var(--gain);}
+
+  /* ---------- Execute-trade wizard ---------- */
+  .x-launch{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    border:1px solid var(--amber);background:linear-gradient(135deg,var(--accent-light),var(--surface));}
+  .x-launch h2{font-size:18px;margin-bottom:3px;}
+  .x-launch p{margin:0;font-size:12.5px;color:var(--text-muted);line-height:1.5;max-width:520px;}
+  .x-launch .btn-primary{font-size:14px;padding:11px 20px;}
+  .x-overlay{position:fixed;inset:0;background:rgba(6,11,18,0.62);z-index:110;display:none;
+    align-items:flex-start;justify-content:center;padding:28px 16px;overflow-y:auto;}
+  .x-overlay.open{display:flex;}
+  .x-modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:100%;max-width:640px;
+    box-shadow:0 18px 50px rgba(0,0,0,.28);display:flex;flex-direction:column;}
+  .x-head{padding:16px 20px 12px;border-bottom:1px solid var(--border);}
+  .x-head-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;}
+  .x-head h2{font-size:18px;}
+  .x-close{width:32px;height:32px;padding:0;border-radius:50%;font-size:15px;}
+  .x-steps{display:flex;gap:4px;flex-wrap:wrap;}
+  .x-step{font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:20px;background:var(--surface-2);
+    color:var(--text-muted);border:1px solid var(--border);white-space:nowrap;}
+  .x-step.done{background:var(--gain-bg);color:var(--gain);border-color:transparent;}
+  .x-step.miss{background:var(--loss-bg);color:var(--loss);border-color:transparent;}
+  .x-step.cur{background:var(--amber);color:var(--amber-text);border-color:var(--amber);}
+  .x-body{padding:18px 20px;min-height:220px;}
+  .x-body h3{font-size:16px;margin-bottom:4px;}
+  .x-sub{font-size:12px;color:var(--text-muted);margin:0 0 14px;line-height:1.5;}
+  .x-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid var(--border);flex-wrap:wrap;}
+  .x-foot .x-gate{font-size:12px;font-weight:600;}
+  .x-foot .x-btns{display:flex;gap:8px;margin-left:auto;}
+  .x-btn-warn{background:var(--loss);border-color:var(--loss);color:#fff;}
+  .x-item{display:flex;gap:12px;align-items:flex-start;padding:11px 12px;border:1px solid var(--border);border-radius:9px;
+    margin-bottom:8px;cursor:pointer;background:var(--surface-2);font-size:13.5px;line-height:1.45;}
+  .x-item:hover{border-color:var(--amber);}
+  .x-item.on{background:var(--gain-bg);border-color:var(--gain);}
+  .x-item input{width:18px;height:18px;margin-top:1px;flex-shrink:0;accent-color:var(--gain);cursor:pointer;}
+  .x-item .code{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-muted);margin-right:4px;}
+  .x-item .opt{font-size:10px;border:1px solid var(--border);border-radius:20px;padding:0 6px;margin-left:6px;color:var(--text-muted);}
+  .x-item .hint{display:block;font-size:11.5px;margin-top:3px;font-weight:600;}
+  .x-item .hint.ok{color:var(--gain);} .x-item .hint.bad{color:var(--loss);} .x-item .hint.info{color:var(--text-muted);font-weight:500;}
+  .x-banner{font-size:12.5px;line-height:1.5;border-radius:8px;padding:9px 12px;margin:10px 0 0;}
+  .x-banner.bad{background:var(--loss-bg);color:var(--loss);}
+  .x-banner.ok{background:var(--gain-bg);color:var(--gain);}
+  .x-banner.warn{background:var(--warning-bg);color:var(--warning);}
+  .x-calc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px;}
+  @media (max-width:520px){ .x-calc{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .x-calc .stat .value{font-size:17px;}
+  .x-rr{display:flex;gap:6px;margin-top:6px;}
+  .x-rr button{padding:3px 9px;font-size:11px;}
+  .x-ticket{margin-top:14px;border:1px dashed var(--amber);border-radius:9px;padding:12px 14px;background:var(--accent-light);}
+  .x-ticket .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--text-muted);margin-bottom:6px;}
+  .x-ticket pre{margin:0;font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:600;white-space:pre-wrap;color:var(--text);}
+  .x-ticket .x-copy{margin-top:10px;font-size:12px;padding:6px 12px;}
+  .x-status{display:grid;gap:6px;}
+  .x-status div{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:7px 10px;border-radius:7px;background:var(--surface-2);}
+  .x-status b{font-family:'IBM Plex Mono',monospace;}
+
+  /* Manual entry card: folded by default, opens on Edit */
+  .manual-card.collapsed > :not(.card-head){display:none;}
+  .manual-card.collapsed{padding-top:12px;padding-bottom:12px;}
+  .manual-card.collapsed .card-head{margin-bottom:0;}
+  .manual-toggle{display:flex;align-items:center;gap:10px;background:none;border:none;padding:0;text-align:left;}
+  .manual-toggle:hover{border:none;}
+  .manual-toggle:hover h2{color:var(--amber);}
+  .manual-toggle h2{font-size:15px;}
+  .manual-toggle .chev{display:inline-block;font-size:12px;color:var(--text-muted);transition:transform .15s;}
+  .manual-card:not(.collapsed) .manual-toggle .chev{transform:rotate(90deg);}
+  .manual-hint{font-size:11.5px;color:var(--text-muted);margin-right:auto;}
+  .manual-card:not(.collapsed) .manual-hint{display:none;}
+  @media (max-width:520px){ .manual-hint{display:none;} }
 </style>
 </head>
 <body>
@@ -967,9 +1035,21 @@
         <span class="day-badge" id="dayBadge" hidden></span>
       </div>
 
-      <div class="card">
-        <div class="card-head">
-          <h2 id="formTitle">Log a trade</h2>
+      <div class="card x-launch">
+        <div>
+          <h2>⚡ Execute a trade</h2>
+          <p>Step-by-step: confirm each timeframe on the checklist, size the lot from your risk, get the order ticket for your platform, then log the fill. The checklist locks automatically.</p>
+        </div>
+        <button type="button" class="btn-primary" id="xOpen">Start execution →</button>
+      </div>
+
+      <div class="card manual-card collapsed" id="manualCard">
+        <div class="card-head manual-head">
+          <button type="button" class="manual-toggle" id="manualToggle" aria-expanded="false" aria-controls="manualCard">
+            <span class="chev" aria-hidden="true">▸</span>
+            <h2 id="formTitle">Manual entry / edit a trade</h2>
+          </button>
+          <span class="manual-hint">For corrections, or closing a trade the broker file missed</span>
           <button id="cancelEdit" class="btn-ghost" style="display:none;">Cancel edit</button>
         </div>
         <div class="form-section">
@@ -1257,6 +1337,27 @@
 </main>
 
 <footer>Stored locally in this browser only. Export a backup now and then. · Not financial advice.</footer>
+
+
+<div class="x-overlay" id="xOverlay" role="dialog" aria-modal="true" aria-labelledby="xTitle">
+  <div class="x-modal">
+    <div class="x-head">
+      <div class="x-head-top">
+        <h2 id="xTitle">Execute a trade</h2>
+        <button type="button" class="x-close btn-ghost" id="xClose" aria-label="Close">✕</button>
+      </div>
+      <div class="x-steps" id="xSteps"></div>
+    </div>
+    <div class="x-body" id="xBody"></div>
+    <div class="x-foot">
+      <span class="x-gate" id="xGate"></span>
+      <div class="x-btns">
+        <button type="button" class="btn-ghost" id="xBack">← Back</button>
+        <button type="button" class="btn-primary" id="xNext">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="lightbox-overlay" id="lightboxOverlay">
   <button class="lightbox-close" id="lightboxClose" aria-label="Close">✕</button>
@@ -2190,6 +2291,18 @@
     toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 2800);
   }
 
+  var elManualCard = document.getElementById("manualCard");
+  var elManualToggle = document.getElementById("manualToggle");
+  function setManualOpen(open){
+    elManualCard.classList.toggle("collapsed", !open);
+    elManualToggle.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  elManualToggle.addEventListener("click", function(){
+    var opening = elManualCard.classList.contains("collapsed");
+    if(!opening && editingId){ resetForm(); return; } // folding mid-edit cancels the edit
+    setManualOpen(opening);
+  });
+
   function resetForm(){
     editingSnapshot = null;
     elOffSession.checked = false;
@@ -2202,7 +2315,8 @@
     setSide("long");
     setFormAccount(activeFirmFilter !== "All" ? activeFirmFilter : (data.accounts[0] ? data.accounts[0].id : null));
     editingId = null;
-    elFormTitle.textContent = "Log a trade";
+    elFormTitle.textContent = "Manual entry / edit a trade";
+    setManualOpen(false);
     elSaveTrade.textContent = "Save trade";
     elCancelEdit.style.display = "none";
     renderChecklist();
@@ -2331,6 +2445,7 @@
     elFormTitle.textContent = "Edit trade";
     elSaveTrade.textContent = "Update trade";
     elCancelEdit.style.display = "inline-block";
+    setManualOpen(true);
     updatePreview();
     var status = tradeStatus(t);
     var scrollTarget = elSymbol;
@@ -4765,14 +4880,16 @@
   }
   function closedJournalTrades(accountId){
     return data.trades.filter(function(t){
-      return t.accountId === accountId && t.symbol && typeof t.entry === "number" && typeof t.exit === "number" && typeof t.size === "number";
+      return t.accountId === accountId && t.symbol && typeof t.entry === "number" && typeof t.size === "number"; // open trades too, so the broker file can close them
     });
   }
   function matchScore(t, p){
     if(t.symbol !== p.symbol) return Infinity;
     if(t.brokerPos && t.brokerPos === p.pos) return -1;
     var rel = function(a, b){ return Math.abs(a - b) / Math.abs(b || 1); };
-    var s = (p.side === t.side ? 0 : 5) + Math.abs(p.size - t.size) * 20 + rel(p.exit, t.exit) * 1000;
+    var hasExit = typeof t.exit === "number";
+    if(!hasExit && p.orphan) return Infinity; // nothing reliable to match on
+    var s = (p.side === t.side ? 0 : 5) + Math.abs(p.size - t.size) * 20 + (hasExit ? rel(p.exit, t.exit) * 1000 : 0);
     if(!p.orphan) s += rel(p.entry, t.entry) * 1000 + (p.date === t.date ? 0 : 1);
     return s;
   }
@@ -4961,6 +5078,419 @@
     renderAll();
     renderReconFiles();
   });
+
+
+  // ---------- Execute-trade wizard ----------
+  // A guided path from "I'm looking at a setup" to "the entry is logged":
+  // setup -> one checklist step per timeframe group -> risk & order ticket ->
+  // confirm the fill. It logs the trade with the checklist locked at entry,
+  // the same way the manual form does, plus the stop, target and risk used.
+  var X = null;
+  var elXOverlay = document.getElementById("xOverlay");
+  var elXBody = document.getElementById("xBody");
+  var elXSteps = document.getElementById("xSteps");
+  var elXGate = document.getElementById("xGate");
+  var elXBack = document.getElementById("xBack");
+  var elXNext = document.getElementById("xNext");
+  var X_LAST_KEY = "tapeJournalExecLast_v1";
+
+  function xNum(v){ var n = parseFloat(v); return isNaN(n) ? null : n; }
+  function xPx(n){ return n === null || n === undefined ? "—" : String(+(+n).toFixed(5)); }
+  function xBalance(accId){
+    var a = accountById(accId);
+    var s = a && typeof a.starting === "number" && !isNaN(a.starting) ? a.starting : 0;
+    return s + accountClosedPnl(accId);
+  }
+  function xCtx(){ return { symbol: X.symbol, side: X.side }; }
+  function xModel(){ return CHECKLIST_MODELS[X.model] || CHECKLIST_MODELS[DEFAULT_CHECKLIST_MODEL]; }
+  function xItems(groupId){
+    var ctx = xCtx();
+    return xModel().items.filter(function(it){ return itemVisible(it, ctx) && (!groupId || it.group === groupId); });
+  }
+  function xTally(groupId){
+    var ctx = xCtx(), t = { req: 0, met: 0, bonus: 0 };
+    xItems(groupId).forEach(function(it){
+      if(itemRequired(it, ctx)){ t.req++; if(X.ticks[it.id]) t.met++; }
+      else if(X.ticks[it.id]) t.bonus++;
+    });
+    t.missing = t.req - t.met; t.ok = t.missing <= 0;
+    return t;
+  }
+  function xStepList(){
+    var steps = [{ k: "setup", label: "Setup" }];
+    xModel().groups.forEach(function(g){
+      if(xItems(g.id).length) steps.push({ k: "g", group: g, label: g.label.split(" · ")[0] });
+    });
+    steps.push({ k: "risk", label: "Risk & order" });
+    steps.push({ k: "fill", label: "Confirm fill" });
+    return steps;
+  }
+  function xToday(accId){
+    var list = data.trades.filter(function(t){
+      return t.date === todayStr() && t.accountId === accId && t.entry !== null && t.entry !== undefined && t.entry !== "";
+    });
+    return { n: list.length, losses: list.filter(function(t){ return isClosed(t) && t.pnl < 0; }).length };
+  }
+  function xNextRedFolder(){
+    var now = Date.now();
+    return FED_EVENTS.filter(function(e){ return Math.abs(e.t - now) <= 30 * 60000; })[0] || null;
+  }
+  // Live facts the journal can check for you, shown under matching items.
+  function xHint(it){
+    var label = itemLabel(it, xCtx());
+    if(/killzone/i.test(label)){
+      var inKz = inKillzoneNow();
+      return inKz ? { c: "ok", t: "✓ You are inside a killzone right now" } : { c: "bad", t: "✗ Outside the killzones right now" };
+    }
+    if(/news/i.test(label)){
+      var ev = xNextRedFolder();
+      return ev ? { c: "bad", t: "✗ " + ev.name + " within 30 min" } : { c: "info", t: "No Fed event within 30 min — still check the calendar for CPI / NFP etc." };
+    }
+    if(/trades today/i.test(label)){
+      var d = xToday(X.accountId);
+      var bad = d.n >= 2 || d.losses >= 2;
+      return { c: bad ? "bad" : "ok", t: (bad ? "✗ " : "✓ ") + d.n + " trade" + (d.n === 1 ? "" : "s") + " and " + d.losses + " loss" + (d.losses === 1 ? "" : "es") + " today on this account" };
+    }
+    if(/R:R|1:2/.test(label) && X.rr){
+      return X.rr >= 2 ? { c: "ok", t: "✓ Planned R:R 1:" + X.rr.toFixed(2) } : { c: "bad", t: "✗ Planned R:R 1:" + X.rr.toFixed(2) };
+    }
+    return null;
+  }
+
+  // Lot size from risk: risk $ / (stop distance x contract size), rounded down to 0.01.
+  function xCalc(){
+    var e = xNum(X.entry), sl = xNum(X.sl), tp = xNum(X.tp), r = xNum(X.riskPct);
+    var bal = xBalance(X.accountId), cs = contractSize(X.symbol);
+    var out = { bal: bal, riskUsd: r !== null ? bal * r / 100 : null, dist: null, lots: null, rr: null, err: "", tpUsd: null, slUsd: null };
+    if(e === null || sl === null) return out;
+    out.dist = Math.abs(e - sl);
+    if(!out.dist){ out.err = "Stop loss can't equal the entry price."; return out; }
+    if(X.side === "long" && sl >= e){ out.err = "For a long, the stop goes below the entry."; return out; }
+    if(X.side === "short" && sl <= e){ out.err = "For a short, the stop goes above the entry."; return out; }
+    if(tp !== null){
+      if((X.side === "long" && tp <= e) || (X.side === "short" && tp >= e)) out.err = "The target is on the wrong side of the entry.";
+      else out.rr = Math.abs(tp - e) / out.dist;
+    }
+    if(out.riskUsd !== null && out.riskUsd > 0){
+      out.lots = Math.floor(out.riskUsd / (out.dist * cs) * 100 + 1e-9) / 100;
+      if(out.lots < 0.01) out.err = out.err || "Even 0.01 lots risks more than your plan — widen nothing; skip or use a tighter stop.";
+    }
+    var lotsUsed = out.lots && out.lots >= 0.01 ? out.lots : null;
+    if(lotsUsed){
+      out.slUsd = out.dist * cs * lotsUsed;
+      if(out.rr) out.tpUsd = Math.abs(tp - e) * cs * lotsUsed;
+    }
+    return out;
+  }
+
+  function openExecute(){
+    var last = {};
+    try{ last = JSON.parse(localStorage.getItem(X_LAST_KEY) || "{}") || {}; }catch(e){}
+    var acc = currentFormAccountId && accountById(currentFormAccountId) ? currentFormAccountId : (data.accounts[0] ? data.accounts[0].id : null);
+    if(!acc){ alert("Add an account first (Account management in the sidebar)."); return; }
+    X = {
+      step: 0, symbol: (elSymbol.value.trim().toUpperCase() || last.symbol || ""), side: "long", accountId: acc,
+      model: lastChecklistModel, ticks: {}, riskPct: (last.riskPct != null ? last.riskPct : data.riskSettings.basePct),
+      entry: "", sl: "", tp: "", fill: "", lots: "", fee: "", notes: "", offSession: !inKillzoneNow(), rr: null
+    };
+    elXOverlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+    renderExecute();
+  }
+  function closeExecute(force){
+    if(!X) return;
+    if(!force && (Object.keys(X.ticks).some(function(k){ return X.ticks[k]; }) || X.entry) && !confirm("Close without logging? What you've ticked here is discarded.")) return;
+    X = null;
+    elXOverlay.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  function renderExecute(){
+    var steps = xStepList();
+    if(X.step >= steps.length) X.step = steps.length - 1;
+    var s = steps[X.step];
+    elXSteps.innerHTML = steps.map(function(st, i){
+      var c = i === X.step ? "cur" : "";
+      if(i < X.step){
+        if(st.k === "g") c = xTally(st.group.id).ok ? "done" : "miss";
+        else c = "done";
+      }
+      return '<span class="x-step ' + c + '">' + (i + 1) + " · " + escapeHtml(st.label) + "</span>";
+    }).join("");
+    elXBack.style.visibility = X.step === 0 ? "hidden" : "visible";
+    if(s.k === "setup") xRenderSetup();
+    else if(s.k === "g") xRenderGroup(s.group);
+    else if(s.k === "risk") xRenderRisk();
+    else xRenderFill();
+    xUpdateFoot();
+  }
+
+  function xUpdateFoot(){
+    var steps = xStepList(), s = steps[X.step], all = xTally();
+    elXGate.innerHTML = s.k === "setup" ? "" : (all.ok
+      ? '<span class="up">✅ Required ' + all.met + "/" + all.req + "</span>"
+      : '<span class="down">❌ Required ' + all.met + "/" + all.req + "</span>");
+    elXNext.className = "btn-primary";
+    if(s.k === "g"){
+      var t = xTally(s.group.id);
+      elXNext.textContent = t.ok ? "Next →" : t.missing + " missing — continue anyway";
+      if(!t.ok) elXNext.className = "x-btn-warn";
+    } else if(s.k === "fill"){
+      elXNext.textContent = all.ok ? "Log entry ✓" : "Log as rule break";
+      if(!all.ok) elXNext.className = "x-btn-warn";
+    } else {
+      elXNext.textContent = "Next →";
+    }
+  }
+
+  function xRenderSetup(){
+    var accOpts = data.accounts.map(function(a){
+      return '<option value="' + escapeHtml(a.id) + '"' + (a.id === X.accountId ? " selected" : "") + ">" + escapeHtml(a.name) + " — " + escapeHtml(a.stage || "Phase 1") + "</option>";
+    }).join("");
+    var modelBtns = CHECKLIST_MODEL_ORDER.map(function(id){
+      return '<button type="button" data-model="' + escapeHtml(id) + '" class="' + (id === X.model ? "active" : "") + '">' + escapeHtml(CHECKLIST_MODELS[id].toggleLabel) + "</button>";
+    }).join("");
+    var d = xToday(X.accountId), inKz = inKillzoneNow(), ev = xNextRedFolder();
+    elXBody.innerHTML =
+      "<h3>What are you about to trade?</h3>" +
+      '<p class="x-sub">Pick the instrument, direction and account. The checklist labels follow your side and symbol.</p>' +
+      '<div class="form-grid form-grid-2">' +
+        '<div class="field"><label for="xSym">Symbol</label><input id="xSym" type="text" maxlength="12" placeholder="XAUUSD" style="text-transform:uppercase;" value="' + escapeHtml(X.symbol) + '"></div>' +
+        '<div class="field"><label>Side</label><div class="toggle-group side-toggle"><button type="button" id="xLong" class="' + (X.side === "long" ? "active-long" : "") + '">Long</button><button type="button" id="xShort" class="' + (X.side === "short" ? "active-short" : "") + '">Short</button></div></div>' +
+        '<div class="field full"><label for="xAcc">Account</label><select id="xAcc">' + accOpts + "</select></div>" +
+        '<div class="field full"><label>Checklist model</label><div class="toggle-group" id="xModels">' + modelBtns + "</div></div>" +
+      "</div>" +
+      '<div class="x-status" style="margin-top:16px;">' +
+        "<div><span>Session</span><b class=\"" + (inKz ? "up" : "down") + '">' + (inKz ? "Inside killzone" : "Outside killzones") + "</b></div>" +
+        "<div><span>Fed news ±30 min</span><b class=\"" + (ev ? "down" : "up") + '">' + (ev ? escapeHtml(ev.name) : "None") + "</b></div>" +
+        "<div><span>Today on this account</span><b class=\"" + (d.n >= 2 || d.losses >= 2 ? "down" : "") + '">' + d.n + " trades · " + d.losses + " losses</b></div>" +
+        "<div><span>Account balance</span><b>" + money(xBalance(X.accountId)) + "</b></div>" +
+      "</div>" +
+      (!inKz ? '<div class="x-banner bad">🚫 Outside the killzones — your rules say no new trades. You can still continue; the trade will be tagged off-session.</div>' : "") +
+      (d.n >= 2 || d.losses >= 2 ? '<div class="x-banner bad">Daily limit reached on this account (R4). Consider stopping for today.</div>' : "");
+    var sym = document.getElementById("xSym");
+    sym.addEventListener("input", function(){ X.symbol = sym.value.trim().toUpperCase(); renderSteps(); });
+    document.getElementById("xLong").addEventListener("click", function(){ X.side = "long"; renderExecute(); });
+    document.getElementById("xShort").addEventListener("click", function(){ X.side = "short"; renderExecute(); });
+    document.getElementById("xAcc").addEventListener("change", function(e){ X.accountId = e.target.value; renderExecute(); });
+    Array.prototype.forEach.call(document.querySelectorAll("#xModels button"), function(b){
+      b.addEventListener("click", function(){ X.model = b.dataset.model; X.ticks = {}; renderExecute(); });
+    });
+    if(!X.symbol) setTimeout(function(){ sym.focus(); }, 30);
+  }
+  function renderSteps(){ // refresh just the step pills (keeps focus in inputs)
+    var focus = document.activeElement && document.activeElement.id;
+    var steps = xStepList();
+    elXSteps.innerHTML = steps.map(function(st, i){
+      return '<span class="x-step' + (i === X.step ? " cur" : (i < X.step ? " done" : "")) + '">' + (i + 1) + " · " + escapeHtml(st.label) + "</span>";
+    }).join("");
+    if(focus){ var el = document.getElementById(focus); if(el) el.focus(); }
+  }
+
+  function xRenderGroup(g){
+    var ctx = xCtx(), items = xItems(g.id);
+    var html = "<h3>" + escapeHtml(g.label) + "</h3>" +
+      '<p class="x-sub">' + escapeHtml(X.symbol) + " " + (X.side === "long" ? "Long" : "Short") + " · tick only what you can see on the chart right now.</p>";
+    items.forEach(function(it){
+      var on = !!X.ticks[it.id], req = itemRequired(it, ctx), h = xHint(it);
+      html += '<label class="x-item' + (on ? " on" : "") + '"><input type="checkbox" data-id="' + escapeHtml(it.id) + '"' + (on ? " checked" : "") + ">" +
+        '<span><span class="code">' + escapeHtml(it.code) + "</span>" + escapeHtml(itemLabel(it, ctx)) + (req ? "" : '<span class="opt">bonus</span>') +
+        (h ? '<span class="hint ' + h.c + '">' + escapeHtml(h.t) + "</span>" : "") + "</span></label>";
+    });
+    html += '<div id="xGroupBanner"></div>';
+    elXBody.innerHTML = html;
+    function banner(){
+      var t = xTally(g.id), el = document.getElementById("xGroupBanner");
+      el.innerHTML = t.req ? (t.ok ? '<div class="x-banner ok">✓ All required items in this step are met.</div>'
+        : '<div class="x-banner bad">' + t.missing + " required item" + (t.missing > 1 ? "s" : "") + " missing here — by your rules this is NO TRADE.</div>") : "";
+    }
+    Array.prototype.forEach.call(elXBody.querySelectorAll('input[type="checkbox"]'), function(cb){
+      cb.addEventListener("change", function(){
+        X.ticks[cb.dataset.id] = cb.checked;
+        cb.closest(".x-item").classList.toggle("on", cb.checked);
+        banner(); xUpdateFoot();
+      });
+    });
+    banner();
+  }
+
+  function xRenderRisk(){
+    var cs = contractSize(X.symbol);
+    elXBody.innerHTML =
+      "<h3>Risk &amp; order</h3>" +
+      '<p class="x-sub">Enter the current price and where your stop and target go. The lot size comes from your risk %. Contract size for ' + escapeHtml(X.symbol) + ": " + cs.toLocaleString() + " per lot." +
+        (/USD$/.test(X.symbol) || /^XA/.test(X.symbol) ? "" : " This pair isn't quoted in USD, so the $ figures are approximate.") + "</p>" +
+      '<div class="form-grid">' +
+        '<div class="field"><label for="xEntry">Entry (market)</label><input id="xEntry" type="number" step="any" value="' + escapeHtml(X.entry) + '"></div>' +
+        '<div class="field"><label for="xSl">Stop loss</label><input id="xSl" type="number" step="any" value="' + escapeHtml(X.sl) + '"></div>' +
+        '<div class="field"><label for="xTp">Take profit</label><input id="xTp" type="number" step="any" value="' + escapeHtml(X.tp) + '">' +
+          '<div class="x-rr"><button type="button" data-rr="2">1:2</button><button type="button" data-rr="2.5">1:2.5</button><button type="button" data-rr="3">1:3</button></div></div>' +
+        '<div class="field"><label for="xRisk">Risk %</label><input id="xRisk" type="number" step="0.05" min="0" value="' + escapeHtml(X.riskPct) + '"></div>' +
+      "</div>" +
+      '<div id="xCalcOut"></div>';
+    function bind(id, key){
+      document.getElementById(id).addEventListener("input", function(e){ X[key] = e.target.value; xUpdateRisk(); });
+    }
+    bind("xEntry", "entry"); bind("xSl", "sl"); bind("xTp", "tp"); bind("xRisk", "riskPct");
+    Array.prototype.forEach.call(elXBody.querySelectorAll("[data-rr]"), function(b){
+      b.addEventListener("click", function(){
+        var e = xNum(X.entry), sl = xNum(X.sl);
+        if(e === null || sl === null){ alert("Enter the entry and stop first."); return; }
+        var r = parseFloat(b.dataset.rr), dist = Math.abs(e - sl);
+        X.tp = String(+(X.side === "long" ? e + dist * r : e - dist * r).toFixed(5));
+        document.getElementById("xTp").value = X.tp;
+        xUpdateRisk();
+      });
+    });
+    xUpdateRisk();
+    if(!X.entry) setTimeout(function(){ document.getElementById("xEntry").focus(); }, 30);
+  }
+  function xUpdateRisk(){
+    var c = xCalc(), el = document.getElementById("xCalcOut");
+    if(!el) return;
+    X.rr = c.rr;
+    X.lotsCalc = c.lots && c.lots >= 0.01 ? c.lots : null;
+    var html = '<div class="x-calc">' +
+      '<div class="stat"><div class="label">Risk $</div><div class="value">' + (c.riskUsd === null ? "—" : money(c.riskUsd)) + "</div></div>" +
+      '<div class="stat"><div class="label">Lot size</div><div class="value">' + (X.lotsCalc ? X.lotsCalc.toFixed(2) : "—") + "</div></div>" +
+      '<div class="stat"><div class="label">R:R</div><div class="value ' + (c.rr ? (c.rr >= 2 ? "up" : "down") : "") + '">' + (c.rr ? "1:" + c.rr.toFixed(2) : "—") + "</div></div>" +
+      '<div class="stat"><div class="label">Stop distance</div><div class="value">' + (c.dist ? xPx(c.dist) : "—") + "</div></div>" +
+      '<div class="stat"><div class="label">If stopped</div><div class="value down">' + (c.slUsd ? "-" + money(c.slUsd) : "—") + "</div></div>" +
+      '<div class="stat"><div class="label">If target</div><div class="value up">' + (c.tpUsd ? "+" + money(c.tpUsd) : "—") + "</div></div>" +
+      "</div>";
+    if(c.err) html += '<div class="x-banner bad">' + escapeHtml(c.err) + "</div>";
+    else if(c.rr && c.rr < 2) html += '<div class="x-banner warn">R:R is under 1:2 — your rules (R3) want 1:2 – 1:3 at the opposing liquidity.</div>';
+    if(X.lotsCalc && !c.err){
+      var ticket = (X.side === "long" ? "BUY" : "SELL") + " " + X.symbol + "  " + X.lotsCalc.toFixed(2) + " lots  @ MARKET\n" +
+        "SL  " + xPx(xNum(X.sl)) + "\n" + "TP  " + (xNum(X.tp) === null ? "—" : xPx(xNum(X.tp)));
+      html += '<div class="x-ticket"><div class="lbl">Order ticket — enter this on your prop firm platform</div><pre id="xTicketText">' + escapeHtml(ticket) + "</pre>" +
+        '<button type="button" class="btn-ghost x-copy" id="xCopy">Copy ticket</button></div>';
+    }
+    el.innerHTML = html;
+    var copy = document.getElementById("xCopy");
+    if(copy) copy.addEventListener("click", function(){
+      var txt = document.getElementById("xTicketText").textContent;
+      var done = function(){ copy.textContent = "Copied ✓"; setTimeout(function(){ copy.textContent = "Copy ticket"; }, 1400); };
+      try{ navigator.clipboard.writeText(txt).then(done, function(){ prompt("Copy the ticket:", txt); }); }catch(e){ prompt("Copy the ticket:", txt); }
+    });
+  }
+
+  function xRenderFill(){
+    if(X.fill === "") X.fill = X.entry;
+    if(X.lots === "" && X.lotsCalc) X.lots = X.lotsCalc.toFixed(2);
+    var all = xTally();
+    elXBody.innerHTML =
+      "<h3>Order placed? Confirm the fill</h3>" +
+      '<p class="x-sub">Copy what your platform shows. You’ll add the exit later from Today’s ledger (Edit), or let Broker reconciliation fill it in.</p>' +
+      '<div class="form-grid form-grid-3">' +
+        '<div class="field"><label for="xFill">Fill price</label><input id="xFill" type="number" step="any" value="' + escapeHtml(X.fill) + '"></div>' +
+        '<div class="field"><label for="xLots">Lots filled</label><input id="xLots" type="number" step="any" value="' + escapeHtml(X.lots) + '"></div>' +
+        '<div class="field"><label for="xFee">Commission ($)</label><input id="xFee" type="number" step="any" min="0" placeholder="0.00" value="' + escapeHtml(X.fee) + '"></div>' +
+        '<div class="field full"><label for="xNotes">Notes (optional)</label><textarea id="xNotes" class="field-textarea" placeholder="Why this entry, what you’re watching...">' + escapeHtml(X.notes) + "</textarea></div>" +
+        '<div class="field full"><label class="offsession-check" for="xOff"><input type="checkbox" id="xOff"' + (X.offSession ? " checked" : "") + "><span>Off-session trade — outside the killzones</span></label></div>" +
+      "</div>" +
+      '<div class="x-status" style="margin-top:14px;">' +
+        "<div><span>" + escapeHtml(X.symbol) + " " + (X.side === "long" ? "Long" : "Short") + " · " + escapeHtml((accountById(X.accountId) || {}).name || "") + "</span><b>R:R " + (X.rr ? "1:" + X.rr.toFixed(2) : "—") + "</b></div>" +
+        "<div><span>SL / TP</span><b>" + xPx(xNum(X.sl)) + " / " + (xNum(X.tp) === null ? "—" : xPx(xNum(X.tp))) + "</b></div>" +
+        "<div><span>Checklist (" + escapeHtml(xModel().toggleLabel) + ")</span><b class=\"" + (all.ok ? "up" : "down") + '">' + all.met + "/" + all.req + " required" + (all.bonus ? " · +" + all.bonus + " bonus" : "") + "</b></div>" +
+      "</div>" +
+      (all.ok ? "" : '<div class="x-banner bad">' + all.missing + " required item" + (all.missing > 1 ? "s are" : " is") + " missing. Logging it now tags the trade as a rule break.</div>");
+    ["xFill:fill", "xLots:lots", "xFee:fee", "xNotes:notes"].forEach(function(p){
+      var a = p.split(":");
+      document.getElementById(a[0]).addEventListener("input", function(e){ X[a[1]] = e.target.value; });
+    });
+    document.getElementById("xOff").addEventListener("change", function(e){ X.offSession = e.target.checked; });
+  }
+
+  function xValidate(k){
+    if(k === "setup"){
+      if(!X.symbol){ alert("Enter the symbol."); return false; }
+      if(!accountById(X.accountId)){ alert("Pick an account."); return false; }
+    }
+    if(k === "risk"){
+      var c = xCalc();
+      if(c.err){ alert(c.err); return false; }
+      if(!X.lotsCalc){ alert("Enter the entry, stop loss and risk % to size the trade."); return false; }
+    }
+    if(k === "fill"){
+      if(xNum(X.fill) === null){ alert("Enter the fill price."); return false; }
+      if(!(xNum(X.lots) > 0)){ alert("Enter the lots filled."); return false; }
+    }
+    return true;
+  }
+
+  function xBuildAnalysis(){
+    var ctx = xCtx(), m = xModel(), all = xTally();
+    var lines = [CL_BLOCK_START,
+      "CONFLUENCE CHECKLIST (" + m.name + ") — Required " + all.met + "/" + all.req + " · Bonus " + all.bonus +
+      "  →  " + (all.ok ? "✅ ALL REQUIRED MET" : "❌ " + all.missing + " missing — no trade"), ""];
+    m.groups.forEach(function(g){
+      var items = xItems(g.id);
+      if(!items.length) return;
+      lines.push(g.label);
+      items.forEach(function(it){
+        lines.push((X.ticks[it.id] ? "✔" : "☐") + " " + it.code + " — " + itemLabel(it, ctx) + (itemRequired(it, ctx) ? "" : " (bonus)"));
+      });
+      lines.push("");
+    });
+    while(lines[lines.length - 1] === "") lines.pop();
+    lines.push(CL_BLOCK_END, "");
+    var c = xCalc();
+    lines.push("EXECUTION — " + (X.side === "long" ? "BUY " : "SELL ") + X.symbol + " " + (+xNum(X.lots)).toFixed(2) + " lots @ " + xPx(xNum(X.fill)) +
+      " · SL " + xPx(xNum(X.sl)) + " · TP " + (xNum(X.tp) === null ? "—" : xPx(xNum(X.tp))) +
+      " · R:R " + (c.rr ? "1:" + c.rr.toFixed(2) : "—") + " · risk " + xNum(X.riskPct) + "% (" + (c.riskUsd !== null ? money(c.riskUsd) : "—") + ")");
+    return lines.join("\n");
+  }
+
+  function xLog(){
+    var all = xTally();
+    if(!all.ok && !confirm("❌ " + all.missing + " of " + all.req + " required checklist items are missing — this is a NO TRADE.\n\nOK = log it anyway, tagged as a rule break\nCancel = go back")) return;
+    var model = xModel(), ticks = {};
+    model.items.forEach(function(it){ ticks[it.id] = !!X.ticks[it.id]; });
+    var c = xCalc(), fee = xNum(X.fee);
+    var trade = {
+      id: uid(), date: todayStr(), symbol: X.symbol, side: X.side, accountId: X.accountId,
+      analysis: xBuildAnalysis(), checklistModel: model.id, checklist: ticks,
+      entry: xNum(X.fill), exit: null, size: xNum(X.lots), fee: fee === null ? null : Math.abs(fee),
+      notes: X.notes.trim(), pnl: null,
+      sl: xNum(X.sl), tp: xNum(X.tp), riskPct: xNum(X.riskPct), riskUsd: c.riskUsd !== null ? r2(c.riskUsd) : null,
+      plannedEntry: xNum(X.entry), executedVia: "wizard",
+      checklistAtEntry: { model: model.id, ticks: cloneJson(ticks), at: new Date().toISOString() }
+    };
+    if(!all.ok) trade.ruleBreak = true;
+    if(X.offSession) trade.offSession = true;
+    data.trades.push(trade);
+    try{ saveData(); }
+    catch(err){
+      data.trades.pop();
+      alert("Couldn't save — your browser's storage is full. Export a backup and remove some older screenshots, then try again.");
+      return;
+    }
+    try{ localStorage.setItem(X_LAST_KEY, JSON.stringify({ symbol: X.symbol, riskPct: xNum(X.riskPct) })); }catch(e){}
+    lastChecklistModel = model.id;
+    var warn = trade.ruleBreak || trade.offSession;
+    var tags = [];
+    if(trade.ruleBreak) tags.push("Rule break");
+    if(trade.offSession) tags.push("Off-session");
+    closeExecute(true);
+    setSelectedDate(todayStr());
+    showToast("Entry logged · " + trade.symbol + " " + trade.size + " lots" + (tags.length ? " · " + tags.join(" · ") : " · checklist locked"), warn);
+  }
+
+  elXNext.addEventListener("click", function(){
+    var steps = xStepList(), s = steps[X.step];
+    if(!xValidate(s.k)) return;
+    if(s.k === "fill"){ xLog(); return; }
+    X.step++;
+    renderExecute();
+    elXBody.scrollTop = 0;
+    elXOverlay.scrollTop = 0;
+  });
+  elXBack.addEventListener("click", function(){ if(X.step > 0){ X.step--; renderExecute(); } });
+  document.getElementById("xOpen").addEventListener("click", openExecute);
+  document.getElementById("xClose").addEventListener("click", function(){ closeExecute(false); });
+  elXOverlay.addEventListener("click", function(e){ if(e.target === elXOverlay) closeExecute(false); });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && X) closeExecute(false); });
 
   function renderAll(){
     if(currentView === "stats") renderStatsView();
