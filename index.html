@@ -207,6 +207,12 @@
   td{padding:9px 8px;border-bottom:1px solid var(--border);vertical-align:top;}
   tr:last-child td{border-bottom:none;}
   tr.trade-row:hover{background:var(--surface-2);cursor:pointer;}
+  th.sortable{cursor:pointer;user-select:none;white-space:nowrap;}
+  th.sortable:hover{color:var(--text);}
+  th.sortable::after{content:"\2195";margin-left:4px;opacity:.35;font-size:10px;}
+  th.sortable.sort-asc::after{content:"\25B2";opacity:1;font-size:8px;}
+  th.sortable.sort-desc::after{content:"\25BC";opacity:1;font-size:8px;}
+  th.sortable.sort-asc,th.sortable.sort-desc{color:var(--text);}
   .tag-pill{
     display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:20px;
     background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);
@@ -1157,7 +1163,7 @@
           <table>
             <thead>
               <tr>
-                <th>Sym</th><th>Side</th><th>Firm</th><th>Entry</th><th>Exit</th><th>Size</th><th>Fee</th><th>P&amp;L / status</th><th></th>
+                <th class="sortable" data-sort="symbol">Sym</th><th class="sortable" data-sort="side">Side</th><th class="sortable" data-sort="firm">Firm</th><th class="sortable" data-sort="entry">Entry</th><th class="sortable" data-sort="exit">Exit</th><th class="sortable" data-sort="size">Size</th><th class="sortable" data-sort="fee">Fee</th><th class="sortable" data-sort="pnl">P&amp;L / status</th><th></th>
               </tr>
             </thead>
             <tbody id="tradeRows"></tbody>
@@ -2526,8 +2532,67 @@
     return data.trades.filter(matchesFirmFilter);
   }
 
+  // Sort state: click a header to sort ascending, again for descending,
+  // a third time to return to the original (entry) order.
+  var ledgerSort = { key: null, dir: 1 };
+  try {
+    var savedSort = JSON.parse(localStorage.getItem("tapeJournalLedgerSort_v1") || "null");
+    if(savedSort && savedSort.key) ledgerSort = savedSort;
+  } catch(e){}
+
+  function ledgerSortValue(t, key){
+    function num(v){ return (v === null || v === undefined || v === "" || isNaN(+v)) ? null : +v; }
+    switch(key){
+      case "symbol": return (t.symbol || "").toUpperCase();
+      case "side":   return t.side || "";
+      case "firm":   var a = accountById(t.accountId); return a ? a.name.toUpperCase() : "";
+      case "entry":  return num(t.entry);
+      case "exit":   return num(t.exit);
+      case "size":   return num(t.size);
+      case "fee":    return num(t.fee);
+      case "pnl":    return tradeStatus(t) === "closed" ? num(t.pnl) : null;
+    }
+    return null;
+  }
+
+  function sortLedgerTrades(trades){
+    if(!ledgerSort.key) return trades;
+    var key = ledgerSort.key, dir = ledgerSort.dir;
+    return trades.map(function(t, i){ return { t: t, i: i, v: ledgerSortValue(t, key) }; })
+      .sort(function(a, b){
+        // Blanks (no exit yet, open / analyzing trades) always go last.
+        if(a.v === null && b.v === null) return a.i - b.i;
+        if(a.v === null) return 1;
+        if(b.v === null) return -1;
+        var c = (typeof a.v === "number") ? a.v - b.v : a.v.localeCompare(b.v);
+        return c !== 0 ? c * dir : a.i - b.i;
+      })
+      .map(function(x){ return x.t; });
+  }
+
+  function updateLedgerSortHeaders(){
+    document.querySelectorAll("th.sortable").forEach(function(th){
+      var active = th.dataset.sort === ledgerSort.key;
+      th.classList.toggle("sort-asc", active && ledgerSort.dir === 1);
+      th.classList.toggle("sort-desc", active && ledgerSort.dir === -1);
+    });
+  }
+
+  document.querySelectorAll("th.sortable").forEach(function(th){
+    th.title = "Click to sort";
+    th.addEventListener("click", function(){
+      var key = th.dataset.sort;
+      if(ledgerSort.key !== key) ledgerSort = { key: key, dir: 1 };
+      else if(ledgerSort.dir === 1) ledgerSort.dir = -1;
+      else ledgerSort = { key: null, dir: 1 };
+      try { localStorage.setItem("tapeJournalLedgerSort_v1", JSON.stringify(ledgerSort)); } catch(e){}
+      renderLedger();
+    });
+  });
+
   function renderLedger(){
-    var trades = tradesForDay(selectedDate);
+    var trades = sortLedgerTrades(tradesForDay(selectedDate));
+    updateLedgerSortHeaders();
     elDayCount.textContent = trades.length + (trades.length === 1 ? " trade" : " trades");
     elTradeRows.innerHTML = "";
     elEmptyState.style.display = trades.length ? "none" : "block";
