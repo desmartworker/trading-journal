@@ -977,7 +977,24 @@
   .day-detail .dd-2col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;}
   .day-detail .dd-2col > .card{margin-top:12px;}
   @media (max-width:1100px){ .day-detail .dd-2col{grid-template-columns:minmax(0,1fr);} .day-detail .dd-2col > .card + .card{margin-top:0;} }
+  .day-review .dr-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;}
+  @media (max-width:1100px){ .day-review .dr-grid{grid-template-columns:minmax(0,1fr);} }
+  .day-review .dr-col{min-width:0;display:flex;flex-direction:column;}
+  .day-review .dr-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);}
+  .day-review .mood-row{margin:8px 0 10px;}
+  .day-review textarea{flex:1;min-height:150px;}
+  .day-review .shot-dropzone{margin:8px 0 10px;padding:28px 16px;}
+  .day-review .form-actions{margin-top:12px;}
   #dayDetailHolder{display:none;}
+  #colMain > .day-detail .card{margin:0 0 20px;box-shadow:0 1px 2px rgba(20,18,10,0.04);}
+  .brand .mode-tabs .view-tab.active{background:var(--amber);color:var(--amber-text);}
+  .brand .mode-tabs[hidden]{display:none;}
+  .dr-older{margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);}
+  .dr-older .dr-label{margin-bottom:6px;}
+  .dr-older-item{font-size:12.5px;line-height:1.5;padding:6px 0;border-top:1px solid var(--border);white-space:pre-wrap;word-break:break-word;}
+  .dr-older-item:first-of-type{border-top:none;}
+  .dr-older-item b{font-weight:600;margin-right:6px;}
+  .shot-thumb .shot-day{position:absolute;left:3px;bottom:3px;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(15,27,43,0.8);color:#fff;text-transform:uppercase;letter-spacing:.04em;}
   .review-card .card-head{margin-bottom:10px;}
   .review-steps{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px;font-size:11.5px;color:var(--text-muted);}
   .review-steps span{padding:2px 9px;border-radius:20px;background:var(--surface-2);border:1px solid var(--border);}
@@ -1006,6 +1023,10 @@
       <nav class="view-tabs" role="tablist" aria-label="View">
         <button type="button" class="view-tab" data-view="journal" role="tab">Journal</button>
         <button type="button" class="view-tab" data-view="stats" role="tab">Statistics</button>
+      </nav>
+      <nav class="view-tabs mode-tabs" id="modeTabs" aria-label="Journal layout">
+        <button type="button" class="view-tab" data-mode="daily" aria-pressed="false">Daily</button>
+        <button type="button" class="view-tab" data-mode="weekly" aria-pressed="false">Weekly</button>
       </nav>
     </div>
     <div class="header-right">
@@ -1096,9 +1117,9 @@
   <div class="grid">
 
     <!-- MAIN COLUMN -->
-    <div class="col-main">
+    <div class="col-main" id="colMain">
 
-      <div class="date-nav week-nav">
+      <div class="date-nav week-nav" id="dateNav">
         <button id="prevDay" class="btn-ghost" aria-label="Previous week">←</button>
         <div class="date-label" id="dateLabel">—</div>
         <button id="nextDay" class="btn-ghost" aria-label="Next week">→</button>
@@ -1118,7 +1139,7 @@
 
       <div class="card review-card" id="reconCard">
         <div class="card-head"><h2>Weekly broker upload</h2><span class="eyebrow">once a week</span></div>
-        <div class="review-steps"><span>1 · Export this week’s trade history from each account</span><span>2 · Drop the CSVs here</span><span>3 · Reconcile, then review each day below</span></div>
+        <div class="review-steps"><span>1 · Export this week’s trade history from each account</span><span>2 · Drop the CSVs here</span><span>3 · Reconcile, check the days, then write the week review</span></div>
         <label class="rc-drop" id="reconDrop" for="reconFile">
           Drop broker trade-history CSVs here, or click to choose<br>
           <span style="font-size:11px;">One file per account · you can add several at once</span>
@@ -1134,13 +1155,44 @@
         <p class="sync-hint">Fixes entry, exit, size, side, date, fee and P&amp;L to match the broker, and adds trades the journal is missing. Your analysis, checklist, notes and screenshots are never touched. Journal trades the broker file doesn't contain are only flagged, never deleted.</p>
       </div>
 
-      <div class="section-heading">
+      <div class="section-heading" id="daysHeading">
         <h2>Days</h2>
-        <span class="eyebrow">Click a day to open its trades, reflection and screenshots</span>
+        <span class="eyebrow">Click a day to open its trades</span>
       </div>
       <div class="week-days" id="weekDays"></div>
 
-      <div class="card x-launch">
+      <div class="card day-review" id="reviewCard">
+        <div class="card-head"><h2 id="reviewTitle">Week review</h2><span class="eyebrow" id="reviewRange">—</span></div>
+        <div class="dr-grid">
+          <div class="dr-col">
+            <div class="dr-label" id="reviewMoodLabel">How did you trade this week?</div>
+            <div class="mood-row" id="moodRow">
+              <div class="mood-chip" data-mood="Calm">Calm</div>
+              <div class="mood-chip" data-mood="Confident">Confident</div>
+              <div class="mood-chip" data-mood="Hesitant">Hesitant</div>
+              <div class="mood-chip" data-mood="FOMO">FOMO</div>
+              <div class="mood-chip" data-mood="Revenge">Revenge trading</div>
+              <div class="mood-chip" data-mood="Greedy">Greedy</div>
+              <div class="mood-chip" data-mood="Disciplined">Disciplined</div>
+            </div>
+            <textarea id="reflectionText" placeholder="What went well this week? What would you do differently next week? Any rules broken?"></textarea>
+          </div>
+          <div class="dr-col">
+            <div class="dr-label">Charts</div>
+            <div class="shot-dropzone" id="shotDropzone">
+              <span id="dropText">Drop all of this week’s charts here, or click to choose several at once</span>
+              <span class="hint">Saved as soon as they’re added · stored in this browser, included in backups and sync</span>
+            </div>
+            <input type="file" id="shotFileInput" accept="image/*" multiple style="display:none;">
+            <div class="shot-grid" id="shotGrid"></div>
+            <div class="shot-empty-note" id="shotEmptyNote" style="display:none;"><span id="shotEmptyText">No screenshots for this week yet.</span></div>
+          </div>
+        </div>
+        <div class="dr-older" id="reviewOlder" hidden></div>
+        <div class="form-actions"><button id="saveReflection" class="btn-primary">Save week review</button></div>
+      </div>
+
+      <div class="card x-launch" id="xLaunch">
         <div>
           <h2>⚡ Execute a trade</h2>
           <p>Step-by-step: confirm each timeframe on the checklist, size the lot from your risk, get the order ticket for your platform, then log the fill. The checklist locks automatically.</p>
@@ -1256,7 +1308,7 @@
 
       <div class="card">
         <div class="card-head">
-          <h2>Trades</h2>
+          <h2 id="ledgerTitle">Trades</h2>
           <span class="eyebrow" id="dayCount">0 trades</span>
         </div>
         <div style="overflow-x:auto;">
@@ -1272,33 +1324,6 @@
         <div class="empty-state" id="emptyState" style="display:none;">No trades logged for this day yet. Add one above.</div>
       </div>
 
-      <div class="dd-2col">
-      <div class="card">
-        <div class="card-head"><h2>Reflection</h2></div>
-        <div class="mood-row" id="moodRow">
-          <div class="mood-chip" data-mood="Calm">Calm</div>
-          <div class="mood-chip" data-mood="Confident">Confident</div>
-          <div class="mood-chip" data-mood="Hesitant">Hesitant</div>
-          <div class="mood-chip" data-mood="FOMO">FOMO</div>
-          <div class="mood-chip" data-mood="Revenge">Revenge trading</div>
-          <div class="mood-chip" data-mood="Greedy">Greedy</div>
-          <div class="mood-chip" data-mood="Disciplined">Disciplined</div>
-        </div>
-        <textarea id="reflectionText" placeholder="What went well this day? What would you do differently? Any rules broken?"></textarea>
-        <div class="form-actions"><button id="saveReflection" class="btn-primary">Save reflection</button></div>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><h2>Chart screenshots</h2></div>
-        <div class="shot-dropzone" id="shotDropzone">
-          Drop chart screenshots here, or click to upload
-          <span class="hint">Saved automatically for this date · stored in this browser, included in backups and sync</span>
-        </div>
-        <input type="file" id="shotFileInput" accept="image/*" multiple style="display:none;">
-        <div class="shot-grid" id="shotGrid"></div>
-        <div class="shot-empty-note" id="shotEmptyNote" style="display:none;">No screenshots for this day yet.</div>
-      </div>
-      </div><!-- /dd-2col -->
       </div></div><!-- /dayDetail -->
 
     </div>
@@ -1381,6 +1406,8 @@
         <p class="sync-hint" id="storageUsage"></p>
       </div>
 
+
+      <div id="reconSideSlot"></div>
 
       <div class="card">
         <div class="card-head">
@@ -2561,8 +2588,8 @@
   // ---------- Date nav ----------
   var elDateLabel = document.getElementById("dateLabel");
   var elDatePicker = document.getElementById("datePicker");
-  document.getElementById("prevDay").addEventListener("click", function(){ shiftDay(-7); });
-  document.getElementById("nextDay").addEventListener("click", function(){ shiftDay(7); });
+  document.getElementById("prevDay").addEventListener("click", function(){ shiftDay(journalMode === "weekly" ? -7 : -1); });
+  document.getElementById("nextDay").addEventListener("click", function(){ shiftDay(journalMode === "weekly" ? 7 : 1); });
   document.getElementById("todayBtn").addEventListener("click", function(){ setSelectedDate(todayStr()); });
   elDatePicker.addEventListener("change", function(){ if(elDatePicker.value) setSelectedDate(elDatePicker.value); });
 
@@ -2585,7 +2612,8 @@
   function renderDateLabel(){
     var d = parseDate(selectedDate);
     var wk = weekDates(selectedDate), a = parseDate(wk[0]), b = parseDate(wk[6]);
-    elDateLabel.textContent = "Week of " + MONTH[a.getMonth()].slice(0,3) + " " + a.getDate() + " \u2013 " +
+    if(journalMode !== "weekly") elDateLabel.textContent = WEEKDAY[d.getDay()] + ", " + MONTH[d.getMonth()] + " " + d.getDate();
+    else elDateLabel.textContent = "Week of " + MONTH[a.getMonth()].slice(0,3) + " " + a.getDate() + " \u2013 " +
       (a.getMonth() === b.getMonth() ? "" : MONTH[b.getMonth()].slice(0,3) + " ") + b.getDate() + ", " + b.getFullYear();
     elDatePicker.value = selectedDate;
     renderDayBadge();
@@ -2745,12 +2773,16 @@
     else { selectedMoods.push(mood); chip.classList.add("active"); }
   });
 
+  elReflectionText.addEventListener("input", function(){ elReflectionText.dataset.dirty = "1"; });
+  elMoodRow.addEventListener("click", function(){ elReflectionText.dataset.dirty = "1"; });
   document.getElementById("saveReflection").addEventListener("click", function(){
+    elReflectionText.dataset.dirty = "";
     // Preserve any existing screenshots for the day — this used to overwrite
     // the whole notes entry with just {text, moods}, silently dropping the
     // images array and deleting that day's uploaded screenshots.
-    var existing = data.notes[selectedDate];
-    data.notes[selectedDate] = {
+    var rd = reviewDate();
+    var existing = data.notes[rd];
+    data.notes[rd] = {
       text: elReflectionText.value,
       moods: selectedMoods.slice(),
       images: (existing && existing.images) ? existing.images : []
@@ -2764,9 +2796,16 @@
   });
 
   function renderReflection(){
-    var entry = data.notes[selectedDate] || { text:"", moods:[] };
-    elReflectionText.value = entry.text || "";
-    selectedMoods = (entry.moods || []).slice();
+    var entry = data.notes[reviewDate()] || { text:"", moods:[] };
+    renderReviewMeta();
+    // Opening another day in the same week keeps unsaved review typing.
+    var rd = reviewDate(), sameWeek = renderReflection.lastRd === rd;
+    renderReflection.lastRd = rd;
+    if(!sameWeek || elReflectionText.dataset.dirty !== "1"){
+      elReflectionText.value = entry.text || "";
+      selectedMoods = (entry.moods || []).slice();
+      elReflectionText.dataset.dirty = "";
+    }
     Array.prototype.forEach.call(elMoodRow.children, function(chip){
       chip.classList.toggle("active", selectedMoods.indexOf(chip.dataset.mood) > -1);
     });
@@ -2959,7 +2998,7 @@
     // and if the user navigates to a different date before it finishes,
     // reading the live `selectedDate` there would silently save the image
     // to whichever date they'd moved to instead of the one they meant.
-    var targetDate = selectedDate;
+    var targetDate = reviewDate();
     files.forEach(function(file){
       compressImage(file, function(dataUrl){
         if(!dataUrl) return;
@@ -2987,7 +3026,7 @@
           // Only refresh the visible screenshot grid if we're still looking
           // at the date this image was saved to — otherwise we'd wrongly
           // render another day's images into the currently-viewed day.
-          if(selectedDate === targetDate) renderScreenshots();
+          if(reviewDate() === targetDate) renderScreenshots();
           renderCalendar();
         }).catch(function(){
           alert("Couldn't save that screenshot \u2014 the browser refused to store it. Free up disk space or remove some older screenshots, then try again.");
@@ -2996,8 +3035,8 @@
     });
   }
 
-  function deleteScreenshot(id){
-    var entry = data.notes[selectedDate];
+  function deleteScreenshot(id, ds){
+    var entry = data.notes[ds || reviewDate()];
     if(!entry || !entry.images) return;
     entry.images = entry.images.filter(function(img){ return img.id !== id; });
     saveData();
@@ -3008,10 +3047,16 @@
   }
 
   function renderScreenshots(){
-    var images = imagesForDay(selectedDate);
+    // Every screenshot in the week: the week review's own, plus any saved on
+    // single days earlier (tagged with their day).
+    var rd = reviewDate(), images = [];
+    (journalMode === "weekly" ? weekDates(selectedDate) : [selectedDate]).forEach(function(ds){
+      imagesForDay(ds).forEach(function(img){ images.push({ img: img, ds: ds }); });
+    });
     elShotGrid.innerHTML = "";
     elShotEmptyNote.style.display = images.length ? "none" : "block";
-    images.forEach(function(img){
+    images.forEach(function(it){
+      var img = it.img, imgDs = it.ds;
       var thumb = document.createElement("div");
       thumb.className = "shot-thumb";
       var src = imageSrc(img);
@@ -3026,8 +3071,14 @@
       if(imgEl) imgEl.addEventListener("click", function(){ openLightbox(src); });
       thumb.querySelector(".shot-remove").addEventListener("click", function(e){
         e.stopPropagation();
-        if(confirm("Remove this screenshot?")) deleteScreenshot(img.id);
+        if(confirm("Remove this screenshot?")) deleteScreenshot(img.id, imgDs);
       });
+      if(imgDs !== rd){
+        var tag = document.createElement("span");
+        tag.className = "shot-day";
+        tag.textContent = WEEKDAY[parseDate(imgDs).getDay()].slice(0, 3);
+        thumb.appendChild(tag);
+      }
       elShotGrid.appendChild(thumb);
     });
   }
@@ -5686,11 +5737,6 @@
         (t.ruleBreak ? "Rule break " : "") + (t.offSession ? "Off-session" : "") + '">' +
         "<b>" + escapeHtml(t.symbol) + "</b>" + (t.side === "long" ? "▲" : "▼") + p + "</span>";
     });
-    sm.moods.forEach(function(m){ mid += '<span class="wd-mood">' + escapeHtml(m) + "</span>"; });
-    var meta = [];
-    if(sm.hasNote) meta.push("📝");
-    if(sm.shots) meta.push("🖼 " + sm.shots);
-    if(meta.length) mid += '<span class="wd-meta">' + meta.join(" ") + "</span>";
     if(!mid) mid = '<span class="wd-none">' + ((d.getDay() === 0 || d.getDay() === 6) ? "Weekend" : "No trades") + "</span>";
     var pnlHtml = sm.closed.length
       ? '<span class="wd-pnl ' + (sm.net > 0 ? "up" : (sm.net < 0 ? "down" : "flat")) + '">' + sMoney(sm.net) + "</span>"
@@ -5712,13 +5758,14 @@
       if(!worst || x.net < worst.net) worst = { net: x.net, i: i };
     });
     var breaks = all.filter(function(t){ return t.ruleBreak; }).length, off = all.filter(function(t){ return t.offSession; }).length;
-    var reflected = perDay.filter(function(x){ return x.hasNote; }).length;
+    var rn = data.notes[dates[0]] || {};
+    var reviewed = !!((rn.text && rn.text.trim()) || (rn.moods && rn.moods.length));
     function card(label, value, c, sub){ return '<div class="stat"><div class="label">' + label + '</div><div class="value ' + (c || "") + '">' + value + '</div>' + (sub ? '<div class="sub">' + sub + "</div>" : "") + "</div>"; }
     var wkDays = dates.map(function(ds){ return WEEKDAY[parseDate(ds).getDay()].slice(0, 3); });
     document.getElementById("weekSummary").innerHTML =
       card("Week P&amp;L", closed.length ? sMoney(net) : "—", cls(net), closed.length + " closed" + (all.length - closed.length ? " · " + (all.length - closed.length) + " open" : "")) +
       card("Win rate", (wins + losses) ? (wins / (wins + losses) * 100).toFixed(0) + "%" : "—", "", wins + "W · " + losses + "L") +
-      card("Days traded", traded + " / 5", "", reflected + " reflected") +
+      card("Days traded", traded + " / 5", "", reviewed ? "week reviewed \u2713" : "review not written") +
       card("Best day", best ? sMoney(best.net) : "—", best ? cls(best.net) : "", best ? wkDays[best.i] : "") +
       card("Worst day", worst ? sMoney(worst.net) : "—", worst ? cls(worst.net) : "", worst ? wkDays[worst.i] : "") +
       card("Rule breaks", String(breaks), breaks ? "down" : "", off + " off-session");
@@ -5746,7 +5793,7 @@
     var wrap = document.getElementById("weekDays");
     var detail = document.getElementById("dayDetail");
     var holder = document.getElementById("dayDetailHolder");
-    if(!wrap || !detail) return;
+    if(!wrap || !detail || journalMode !== "weekly") return;
     var dates = weekDates(selectedDate);
     renderWeekSummary(dates);
     var key = dates[0] + "|" + selectedDate + "|" + weekDayOpen;
@@ -5781,7 +5828,7 @@
     // Refresh the day headers in place (keeps focus and typing in the open day).
     Array.prototype.forEach.call(wrap.children, function(row){
       var ds = row.dataset.ds, sm = daySummary(ds);
-      row.classList.toggle("empty", !sm.trades.length && !sm.hasNote && !sm.shots);
+      row.classList.toggle("empty", !sm.trades.length);
       var head = row.querySelector(".wd-head");
       head.innerHTML = weekDayHeadHtml(ds, sm);
       head.setAttribute("aria-expanded", row.classList.contains("open") ? "true" : "false");
@@ -5794,6 +5841,92 @@
     else setSelectedDate(b.dataset.ds);
     var row = document.querySelector('.wd[data-ds="' + b.dataset.ds + '"]');
     if(row) row.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  // The week review is kept in the journal's notes under the week's Monday.
+  function reviewDate(){ return journalMode === "weekly" ? weekDates(selectedDate)[0] : selectedDate; }
+  function renderReviewMeta(){
+    var dates = weekDates(selectedDate), a = parseDate(dates[0]), b = parseDate(dates[6]);
+    var rr = document.getElementById("reviewRange");
+    if(journalMode !== "weekly"){
+      var sd = parseDate(selectedDate);
+      if(rr) rr.textContent = WEEKDAY[sd.getDay()] + ", " + MONTH[sd.getMonth()].slice(0,3) + " " + sd.getDate();
+      var old = document.getElementById("reviewOlder");
+      if(old){ old.hidden = true; old.innerHTML = ""; }
+      return;
+    }
+    if(rr) rr.textContent = MONTH[a.getMonth()].slice(0,3) + " " + a.getDate() + " \u2013 " + MONTH[b.getMonth()].slice(0,3) + " " + b.getDate();
+    var el = document.getElementById("reviewOlder");
+    if(!el) return;
+    var items = dates.slice(1).map(function(ds){
+      var n = data.notes[ds];
+      if(!n || !((n.text && n.text.trim()) || (n.moods && n.moods.length))) return "";
+      return '<div class="dr-older-item"><b>' + WEEKDAY[parseDate(ds).getDay()].slice(0,3) + " " + parseDate(ds).getDate() + "</b>" +
+        (n.moods && n.moods.length ? '<span class="wd-mood">' + n.moods.map(escapeHtml).join(", ") + "</span> " : "") +
+        escapeHtml(n.text || "") + "</div>";
+    }).join("");
+    el.hidden = !items;
+    el.innerHTML = items ? '<div class="dr-label">Notes saved on single days this week</div>' + items : "";
+  }
+
+  // ---------- Daily / Weekly layout (UI only) ----------
+  // Daily is the original one-day page; Weekly is the week list. Both use the
+  // same elements and data: Daily stores reflection & screenshots on the
+  // selected day, Weekly stores the week review on that week's Monday.
+  var MODE_KEY = "tapeJournalMode_v1";
+  var journalMode = (function(){ try{ return localStorage.getItem(MODE_KEY) === "daily" ? "daily" : "weekly"; }catch(e){ return "weekly"; } })();
+  function applyJournalMode(){
+    var weekly = journalMode === "weekly";
+    var main = document.getElementById("colMain");
+    var nav = document.getElementById("dateNav"), wkCard = document.getElementById("weekCard"),
+        recon = document.getElementById("reconCard"), daysH = document.getElementById("daysHeading"),
+        days = document.getElementById("weekDays"), review = document.getElementById("reviewCard"),
+        xl = document.getElementById("xLaunch"), detail = document.getElementById("dayDetail");
+    var order = weekly ? [nav, wkCard, recon, daysH, days, review, xl] : [nav, xl, detail, review];
+    order.forEach(function(el){ main.appendChild(el); });
+    if(!weekly){
+      var slot = document.getElementById("reconSideSlot");
+      slot.parentNode.insertBefore(recon, slot);
+    }
+    [wkCard, daysH, days].forEach(function(el){ el.style.display = weekly ? "" : "none"; });
+    days.dataset.key = ""; // rebuild the day rows next time
+    if(!weekly) days.innerHTML = "";
+    document.getElementById("todayBtn").textContent = weekly ? "This week" : "Today";
+    document.getElementById("prevDay").setAttribute("aria-label", weekly ? "Previous week" : "Previous day");
+    document.getElementById("nextDay").setAttribute("aria-label", weekly ? "Next week" : "Next day");
+    document.getElementById("ledgerTitle").textContent = weekly ? "Trades" : "Today's ledger";
+    recon.querySelector(".card-head h2").textContent = weekly ? "Weekly broker upload" : "Broker reconciliation";
+    var steps = recon.querySelector(".review-steps"), eb = recon.querySelector(".card-head .eyebrow");
+    if(steps) steps.style.display = weekly ? "" : "none";
+    if(eb) eb.style.display = weekly ? "" : "none";
+    document.getElementById("reviewTitle").textContent = weekly ? "Week review" : "Day review";
+    document.getElementById("reviewMoodLabel").textContent = weekly ? "How did you trade this week?" : "How did you trade today?";
+    document.getElementById("dropText").textContent = weekly
+      ? "Drop all of this week’s charts here, or click to choose several at once"
+      : "Drop this day’s charts here, or click to choose several at once";
+    document.getElementById("shotEmptyText").textContent = weekly ? "No screenshots for this week yet." : "No screenshots for this day yet.";
+    elReflectionText.placeholder = weekly
+      ? "What went well this week? What would you do differently next week? Any rules broken?"
+      : "What went well today? What would you do differently? Any rules broken?";
+    document.getElementById("saveReflection").textContent = weekly ? "Save week review" : "Save reflection";
+    Array.prototype.forEach.call(document.querySelectorAll("#modeTabs .view-tab"), function(b){
+      var on = b.dataset.mode === journalMode;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+  function setJournalMode(m){
+    if(m === journalMode) return;
+    journalMode = m;
+    try{ localStorage.setItem(MODE_KEY, m); }catch(e){}
+    if(currentView !== "journal") setView("journal", true);
+    renderReflection.lastRd = null;
+    elReflectionText.dataset.dirty = "";
+    applyJournalMode();
+    renderAll();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("#modeTabs .view-tab"), function(b){
+    b.addEventListener("click", function(){ setJournalMode(b.dataset.mode); });
   });
 
   function renderAll(){
@@ -5820,6 +5953,7 @@
   renderChecklist();
   renderModelManager();
   updateStorageUsage(JSON.stringify(data).length);
+  applyJournalMode();
   renderAll();
   setView(currentView, true);
 })();
