@@ -986,6 +986,23 @@
   .day-review .shot-dropzone{margin:8px 0 10px;padding:28px 16px;}
   .day-review .form-actions{margin-top:12px;}
   #dayDetailHolder{display:none;}
+  .pb-modal{max-width:720px;}
+  .pb-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .pb-controls .toggle-group{flex:1 1 auto;}
+  .pb-controls .toggle-group button{font-size:12px;padding:6px 10px;}
+  .pb-controls input{flex:1 1 150px;min-width:0;}
+  .pb-tabs .x-step{cursor:pointer;font-size:11.5px;padding:4px 11px;}
+  .pb-group{margin-bottom:16px;}
+  .pb-group h3{font-size:14px;margin:0 0 6px;display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
+  .pb-group h3 span{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;}
+  .pb-rule{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);margin-bottom:6px;font-size:13.5px;line-height:1.45;}
+  .pb-rule .code{font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:var(--amber);}
+  .pb-rule .req{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:1px 7px;border-radius:20px;background:var(--loss-bg);color:var(--loss);white-space:nowrap;}
+  .pb-rule .req.bonus{background:var(--surface);color:var(--text-muted);border:1px solid var(--border);}
+  .pb-hint{font-size:12.5px;line-height:1.5;color:var(--text);background:var(--accent-light);border-radius:8px;padding:9px 12px;margin-bottom:14px;}
+  .pb-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px;}
+  .pb-table td,.pb-table th{padding:7px 8px;border-bottom:1px solid var(--border);text-align:left;}
+  .pb-table td.mono{white-space:nowrap;}
   #colMain > .day-detail .card{margin:0 0 20px;box-shadow:0 1px 2px rgba(20,18,10,0.04);}
   .mode-switch{display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);font-weight:600;}
   .mode-switch span{padding:5px 14px;border-radius:6px;font-size:12.5px;color:var(--text-muted);transition:background .15s,color .15s;}
@@ -1195,10 +1212,10 @@
 
       <div class="card x-launch" id="xLaunch">
         <div>
-          <h2>⚡ Execute a trade</h2>
-          <p>Step-by-step: confirm each timeframe on the checklist, size the lot from your risk, get the order ticket for your platform, then log the fill. The checklist locks automatically.</p>
+          <h2>📘 Playbook</h2>
+          <p>Your trading rules in one place: the checklist for each model, the killzone times in your local time, and a lot-size calculator. Reference only — nothing here logs a trade.</p>
         </div>
-        <button type="button" class="btn-primary" id="xOpen">Start execution →</button>
+        <button type="button" class="btn-primary" id="xOpen">Open playbook →</button>
       </div>
 
       <div id="dayDetailHolder"><div class="day-detail" id="dayDetail">
@@ -1459,6 +1476,28 @@
 
 <footer>Stored locally in this browser only. Export a backup now and then. · Not financial advice.</footer>
 
+
+<div class="x-overlay" id="pbOverlay" role="dialog" aria-modal="true" aria-labelledby="pbTitle">
+  <div class="x-modal pb-modal">
+    <div class="x-head">
+      <div class="x-head-top">
+        <h2 id="pbTitle">📘 Playbook</h2>
+        <button type="button" class="x-close btn-ghost" id="pbClose" aria-label="Close">✕</button>
+      </div>
+      <div class="pb-controls">
+        <div class="toggle-group" id="pbModels"></div>
+        <div class="toggle-group side-toggle" id="pbSide"><button type="button" data-side="long">Long</button><button type="button" data-side="short">Short</button></div>
+        <input id="pbSymbol" type="text" maxlength="12" placeholder="Symbol, e.g. XAUUSD" style="text-transform:uppercase;">
+      </div>
+      <div class="x-steps pb-tabs" id="pbTabs">
+        <button type="button" class="x-step" data-tab="rules">Checklist rules</button>
+        <button type="button" class="x-step" data-tab="sessions">Sessions &amp; news</button>
+        <button type="button" class="x-step" data-tab="risk">Lot size</button>
+      </div>
+    </div>
+    <div class="x-body" id="pbBody"></div>
+  </div>
+</div>
 
 <div class="x-overlay" id="xOverlay" role="dialog" aria-modal="true" aria-labelledby="xTitle">
   <div class="x-modal">
@@ -5696,7 +5735,123 @@
     elXOverlay.scrollTop = 0;
   });
   elXBack.addEventListener("click", function(){ if(X.step > 0){ X.step--; renderExecute(); } });
-  document.getElementById("xOpen").addEventListener("click", openExecute);
+
+  // ---------- Playbook (read-only reference) ----------
+  // Shows the checklist models, killzones and a lot-size calculator. It reads
+  // the same models and settings the journal uses and never saves anything.
+  var PB = { model: null, side: "long", symbol: "", tab: "rules", accountId: null, entry: "", sl: "", riskPct: "" };
+  var elPbOverlay = document.getElementById("pbOverlay"), elPbBody = document.getElementById("pbBody");
+  function openPlaybook(){
+    if(!PB.model || !CHECKLIST_MODELS[PB.model]) PB.model = lastChecklistModel;
+    if(!PB.accountId || !accountById(PB.accountId)) PB.accountId = currentFormAccountId || (data.accounts[0] ? data.accounts[0].id : null);
+    if(PB.riskPct === "") PB.riskPct = String(data.riskSettings.basePct);
+    document.getElementById("pbSymbol").value = PB.symbol;
+    elPbOverlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+    renderPlaybook();
+  }
+  function closePlaybook(){ elPbOverlay.classList.remove("open"); document.body.style.overflow = ""; }
+  function renderPlaybook(){
+    document.getElementById("pbModels").innerHTML = CHECKLIST_MODEL_ORDER.map(function(id){
+      return '<button type="button" data-model="' + escapeHtml(id) + '" class="' + (id === PB.model ? "active" : "") + '">' + escapeHtml(CHECKLIST_MODELS[id].toggleLabel) + "</button>";
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll("#pbSide button"), function(b){
+      b.className = b.dataset.side === PB.side ? (PB.side === "long" ? "active-long" : "active-short") : "";
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#pbTabs .x-step"), function(b){ b.classList.toggle("cur", b.dataset.tab === PB.tab); });
+    var showCtl = PB.tab !== "sessions";
+    document.querySelector("#pbOverlay .pb-controls").style.display = showCtl ? "" : "none";
+    if(PB.tab === "rules") pbRules();
+    else if(PB.tab === "sessions") pbSessions();
+    else pbRisk();
+  }
+  function pbRules(){
+    var model = CHECKLIST_MODELS[PB.model], ctx = { symbol: PB.symbol, side: PB.side };
+    var html = model.hint ? '<div class="pb-hint">' + escapeHtml(model.hint) + "</div>" : "";
+    model.groups.forEach(function(g){
+      var items = model.items.filter(function(it){ return it.group === g.id && itemVisible(it, ctx); });
+      if(!items.length) return;
+      var req = items.filter(function(it){ return itemRequired(it, ctx); }).length;
+      html += '<div class="pb-group"><h3>' + escapeHtml(g.label) + "<span>" + req + " required" + (items.length - req ? " · " + (items.length - req) + " bonus" : "") + "</span></h3>";
+      items.forEach(function(it){
+        var r = itemRequired(it, ctx);
+        html += '<div class="pb-rule"><span class="code">' + escapeHtml(it.code) + "</span><span>" + escapeHtml(itemLabel(it, ctx)) +
+          '</span><span class="req' + (r ? "" : " bonus") + '">' + (r ? "Required" : "Bonus") + "</span></div>";
+      });
+      html += "</div>";
+    });
+    html += '<p class="st-note">Any required item missing means no trade. Labels follow the side and symbol above. Edit the rules in Manual entry → ⚙ Manage models.</p>';
+    elPbBody.innerHTML = html;
+  }
+  function pbSessions(){
+    var sessions = kzSessions(), now = Date.now();
+    var refKey = (sessions.filter(function(x){ return x.end > now; })[0] || {}).key || nyKey(now);
+    var rows = KILLZONES.map(function(kz){
+      var x = sessions.filter(function(s2){ return s2.kz.id === kz.id && s2.key === refKey; })[0];
+      return "<tr><td><b>" + kz.name + ' killzone</b></td><td class="mono">' + hm(kz.start) + "–" + hm(kz.end) + ' NY</td><td class="mono">' +
+        (x ? localHM(x.start) + "–" + localHM(x.end) + " your time" : "—") + "</td></tr>";
+    }).join("");
+    var fed = FED_EVENTS.filter(function(e){ return e.t > now; }).slice(0, 4).map(function(e){
+      var d = keyDate(e.key);
+      return '<tr><td class="mono">' + DOW_SHORT[d.getUTCDay()] + " " + MON_SHORT[d.getUTCMonth()] + " " + d.getUTCDate() + "</td><td>" + escapeHtml(e.name) +
+        '</td><td class="mono">' + hm(e.mins) + " NY · " + localHM(e.t) + " yours</td></tr>";
+    }).join("");
+    elPbBody.innerHTML =
+      '<div class="pb-group"><h3>Trading windows <span>Mon–Fri</span></h3><table class="pb-table">' + rows + "</table>" +
+      '<p class="st-note">Rule R1: only enter inside a killzone, first trade of that session. Trades logged outside are tagged Off-session.</p></div>' +
+      '<div class="pb-group"><h3>Red-folder news <span>no trades ±30 min</span></h3><table class="pb-table">' + fed + "</table>" +
+      '<p class="st-note">Rule R2. Also check CPI, NFP and other high-impact releases on the economic calendar.</p></div>' +
+      '<div class="pb-group"><h3>Daily limits</h3><div class="pb-hint">Fewer than 2 trades per day, and stop after 2 losses (R4). Target 1:2 – 1:3 at opposing liquidity (R3). Stop beyond the sweep; size from your risk % (R5).</div></div>';
+  }
+  function pbRisk(){
+    var accOpts = data.accounts.map(function(a){
+      return '<option value="' + escapeHtml(a.id) + '"' + (a.id === PB.accountId ? " selected" : "") + ">" + escapeHtml(a.name) + "</option>";
+    }).join("");
+    elPbBody.innerHTML =
+      '<p class="x-sub">Lot size = risk $ ÷ (stop distance × contract size), rounded down to 0.01. Uses the symbol above and the account’s current balance.</p>' +
+      '<div class="form-grid">' +
+        '<div class="field"><label for="pbAcc">Account</label><select id="pbAcc">' + accOpts + "</select></div>" +
+        '<div class="field"><label for="pbEntry">Entry</label><input id="pbEntry" type="number" step="any" value="' + escapeHtml(PB.entry) + '"></div>' +
+        '<div class="field"><label for="pbSl">Stop loss</label><input id="pbSl" type="number" step="any" value="' + escapeHtml(PB.sl) + '"></div>' +
+        '<div class="field"><label for="pbRisk">Risk %</label><input id="pbRisk" type="number" step="0.05" min="0" value="' + escapeHtml(PB.riskPct) + '"></div>' +
+      '</div><div id="pbCalc"></div>';
+    function upd(){
+      var e = xNum(PB.entry), sl = xNum(PB.sl), r = xNum(PB.riskPct), bal = xBalance(PB.accountId), cs = contractSize(PB.symbol);
+      var risk = r !== null ? bal * r / 100 : null, dist = (e !== null && sl !== null) ? Math.abs(e - sl) : null;
+      var lots = (risk && dist) ? Math.floor(risk / (dist * cs) * 100 + 1e-9) / 100 : null;
+      var tp = function(m){ return dist ? xPx(PB.side === "long" ? e + dist * m : e - dist * m) : "—"; };
+      var wrong = dist && ((PB.side === "long" && sl >= e) || (PB.side === "short" && sl <= e));
+      document.getElementById("pbCalc").innerHTML = '<div class="x-calc">' +
+        '<div class="stat"><div class="label">Balance</div><div class="value">' + money(bal) + "</div></div>" +
+        '<div class="stat"><div class="label">Risk $</div><div class="value">' + (risk === null ? "—" : money(risk)) + "</div></div>" +
+        '<div class="stat"><div class="label">Lot size</div><div class="value">' + (lots && lots >= 0.01 && !wrong ? lots.toFixed(2) : "—") + "</div></div>" +
+        '<div class="stat"><div class="label">TP at 1:2</div><div class="value">' + tp(2) + "</div></div>" +
+        '<div class="stat"><div class="label">TP at 1:2.5</div><div class="value">' + tp(2.5) + "</div></div>" +
+        '<div class="stat"><div class="label">TP at 1:3</div><div class="value">' + tp(3) + "</div></div></div>" +
+        (wrong ? '<div class="x-banner bad">For a ' + PB.side + ", the stop goes " + (PB.side === "long" ? "below" : "above") + " the entry.</div>" : "") +
+        (lots !== null && lots < 0.01 && !wrong ? '<div class="x-banner bad">Even 0.01 lots risks more than your plan.</div>' : "") +
+        '<p class="st-note">Contract size for ' + escapeHtml(PB.symbol || "this symbol") + ": " + cs.toLocaleString() + " per lot.</p>";
+    }
+    document.getElementById("pbAcc").addEventListener("change", function(ev){ PB.accountId = ev.target.value; upd(); });
+    [["pbEntry", "entry"], ["pbSl", "sl"], ["pbRisk", "riskPct"]].forEach(function(p){
+      document.getElementById(p[0]).addEventListener("input", function(ev){ PB[p[1]] = ev.target.value; upd(); });
+    });
+    upd();
+  }
+  document.getElementById("pbModels").addEventListener("click", function(e){
+    var b = e.target.closest("[data-model]"); if(!b) return; PB.model = b.dataset.model; renderPlaybook();
+  });
+  document.getElementById("pbSide").addEventListener("click", function(e){
+    var b = e.target.closest("[data-side]"); if(!b) return; PB.side = b.dataset.side; renderPlaybook();
+  });
+  document.getElementById("pbSymbol").addEventListener("input", function(e){ PB.symbol = e.target.value.trim().toUpperCase(); renderPlaybook(); e.target.focus(); });
+  document.getElementById("pbTabs").addEventListener("click", function(e){
+    var b = e.target.closest("[data-tab]"); if(!b) return; PB.tab = b.dataset.tab; renderPlaybook();
+  });
+  document.getElementById("pbClose").addEventListener("click", closePlaybook);
+  elPbOverlay.addEventListener("click", function(e){ if(e.target === elPbOverlay) closePlaybook(); });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && elPbOverlay.classList.contains("open")) closePlaybook(); });
+  document.getElementById("xOpen").addEventListener("click", openPlaybook);
   document.getElementById("xClose").addEventListener("click", function(){ closeExecute(false); });
   elXOverlay.addEventListener("click", function(e){ if(e.target === elXOverlay) closeExecute(false); });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && X) closeExecute(false); });
