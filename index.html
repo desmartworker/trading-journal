@@ -1042,6 +1042,12 @@
   .link-btn:hover{border:none;text-decoration:underline;}
   .journal-after{margin-top:8px;}
   .journal-after .section-heading{margin-top:6px;}
+  .week-summary.metrics-4{grid-template-columns:repeat(4,minmax(0,1fr));}
+  @media (max-width:640px){ .week-summary.metrics-4{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .week-discipline{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);font-size:12px;color:var(--text-muted);}
+  .week-discipline b{font-family:'IBM Plex Mono',monospace;color:var(--text);}
+  .week-discipline .down, .week-discipline .down b{color:var(--loss);}
+  .week-discipline .up{color:var(--gain);}
   .st-head-l{display:flex;align-items:baseline;gap:8px 16px;flex-wrap:wrap;}
   .st-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .st-range .toggle-group button{font-size:12px;padding:6px 12px;}
@@ -1181,8 +1187,14 @@
           <h2 id="weekTitle">This week</h2>
           <span class="week-head-right"><span class="eyebrow" id="weekScope">All accounts</span><button type="button" class="btn-ghost link-btn" id="weekToStats">All-time statistics →</button></span>
         </div>
-        <div class="week-summary" id="weekSummary"></div>
+        <div class="week-summary metrics-4" id="weekSummary"></div>
+        <div class="week-discipline" id="weekDiscipline"></div>
         <div class="week-bars" id="weekBars"></div>
+      </div>
+
+      <div class="card" id="dayMetricsCard">
+        <div class="card-head"><h2>Day metrics</h2><span class="eyebrow" id="dayMetricsScope">All accounts</span></div>
+        <div class="week-summary metrics-4" id="dayMetrics"></div>
       </div>
 
       <div class="card review-card" id="reconCard">
@@ -5962,6 +5974,47 @@
         MONTH[d.getMonth()].slice(0, 3) + " " + d.getDate() + "</span>" + (isToday ? '<span class="wd-today">Today</span>' : "") + "</span>" +
       '<span class="wd-mid">' + mid + "</span>" + pnlHtml + '<span class="wd-chev" aria-hidden="true">▸</span>';
   }
+  // ---------- Period metrics (Journal) ----------
+  // Uses the same calculations as the Statistics tab, limited to the week
+  // (Weekly) or day (Daily) being viewed.
+  function periodStats(){
+    var saved = statsRange;
+    statsRange = "period";
+    try{ return computeStatistics(); } finally { statsRange = saved; }
+  }
+  function periodMetricsHtml(){
+    var st = periodStats(), D = "—", n = st.n;
+    function card(label, value, c, sub, tip){
+      return '<div class="stat"' + (tip ? ' title="' + escapeHtml(tip) + '"' : "") + '><div class="label">' + label + '</div><div class="value ' + (c || "") + '">' + value + "</div>" +
+        (sub ? '<div class="sub">' + sub + "</div>" : "") + "</div>";
+    }
+    var all = filteredTrades(), per = statsPeriod() || (function(){ var d = journalMode === "weekly" ? weekDates(selectedDate) : [selectedDate]; return { from: d[0], to: d[d.length - 1] }; })();
+    var inPer = all.filter(function(t){ return t.date >= per.from && t.date <= per.to; });
+    var openN = inPer.length - n;
+    // Planned R:R from trades that recorded a stop and target.
+    var planned = inPer.filter(function(t){ return typeof t.sl === "number" && typeof t.tp === "number" && typeof t.entry === "number" && t.entry !== t.sl; })
+      .map(function(t){ return Math.abs(t.tp - t.entry) / Math.abs(t.entry - t.sl); });
+    var plannedAvg = planned.length ? planned.reduce(function(a, b){ return a + b; }, 0) / planned.length : null;
+    var rr = (st.avgWin != null && st.avgLoss != null && st.avgLoss !== 0) ? st.avgWin / Math.abs(st.avgLoss) : null;
+    var pf = st.pf == null ? D : (st.pf === Infinity ? "∞" : st.pf.toFixed(2));
+    var wr = n ? st.wins / n * 100 : null;
+    return card("Total P&amp;L", n ? sMoney(st.net) : D, n ? cls(st.net) : "", n + " closed" + (openN ? " · " + openN + " open" : "")) +
+      card("Win rate", wr === null ? D : wr.toFixed(0) + "%", "", n ? st.wins + "W · " + st.losses + "L" : "") +
+      card("Avg win", st.avgWin != null ? sMoney(st.avgWin) : D, st.avgWin != null ? "up" : "", st.wins ? st.wins + (st.wins === 1 ? " win" : " wins") : "") +
+      card("Avg loss", st.avgLoss != null ? sMoney(st.avgLoss) : D, st.avgLoss != null ? "down" : "", st.losses ? st.losses + (st.losses === 1 ? " loss" : " losses") : "") +
+      card("Avg R:R", rr === null ? D : "1:" + rr.toFixed(2), rr === null ? "" : (rr >= 1 ? "up" : "down"),
+        plannedAvg !== null ? "planned 1:" + plannedAvg.toFixed(2) : "avg win ÷ avg loss", "Realised: average win divided by average loss. Planned: from the stop and target saved on the trade.") +
+      card("Profit factor", n ? pf : D, n && st.pf != null ? (st.pf >= 1 ? "up" : "down") : "", "gross win ÷ gross loss") +
+      card("Sharpe ratio", st.sharpe != null ? st.sharpe.toFixed(2) : D, "", n > 1 ? "per trade" : "needs 2+ trades", "Mean return per trade divided by its standard deviation, same as the Statistics tab.") +
+      card("Max drawdown", n ? (st.maxDD > 0 ? "-" : "") + st.maxDDPct.toFixed(2) + "%" : D, n && st.maxDD > 0 ? "down" : "", n ? (st.maxDD > 0 ? "-" : "") + money(st.maxDD) + " from peak" : "");
+  }
+  function renderDayMetrics(){
+    var el = document.getElementById("dayMetrics");
+    if(!el || journalMode === "weekly") return;
+    el.innerHTML = periodMetricsHtml();
+    document.getElementById("dayMetricsScope").textContent = activeFirmFilter === "All" ? "All accounts" : (accountById(activeFirmFilter) ? accountById(activeFirmFilter).name : "\u2014");
+  }
+
   function renderWeekSummary(dates){
     var all = [], perDay = dates.map(function(ds){ var sm = daySummary(ds); all = all.concat(sm.trades); return sm; });
     var closed = all.filter(isClosed);
@@ -5979,13 +6032,13 @@
     var reviewed = !!((rn.text && rn.text.trim()) || (rn.moods && rn.moods.length));
     function card(label, value, c, sub){ return '<div class="stat"><div class="label">' + label + '</div><div class="value ' + (c || "") + '">' + value + '</div>' + (sub ? '<div class="sub">' + sub + "</div>" : "") + "</div>"; }
     var wkDays = dates.map(function(ds){ return WEEKDAY[parseDate(ds).getDay()].slice(0, 3); });
-    document.getElementById("weekSummary").innerHTML =
-      card("Week P&amp;L", closed.length ? sMoney(net) : "—", cls(net), closed.length + " closed" + (all.length - closed.length ? " · " + (all.length - closed.length) + " open" : "")) +
-      card("Win rate", (wins + losses) ? (wins / (wins + losses) * 100).toFixed(0) + "%" : "—", "", wins + "W · " + losses + "L") +
-      card("Days traded", traded + " / 5", "", reviewed ? "week reviewed \u2713" : "review not written") +
-      card("Best day", best ? sMoney(best.net) : "—", best ? cls(best.net) : "", best ? wkDays[best.i] : "") +
-      card("Worst day", worst ? sMoney(worst.net) : "—", worst ? cls(worst.net) : "", worst ? wkDays[worst.i] : "") +
-      card("Rule breaks", String(breaks), breaks ? "down" : "", off + " off-session");
+    // Best / worst day are visible in the day list, so they aren't repeated here.
+    document.getElementById("weekSummary").innerHTML = periodMetricsHtml();
+    document.getElementById("weekDiscipline").innerHTML =
+      "<span><b>" + traded + "/5</b> days traded</span>" +
+      '<span class="' + (breaks ? "down" : "") + '"><b>' + breaks + "</b> rule break" + (breaks === 1 ? "" : "s") + "</span>" +
+      '<span class="' + (off ? "down" : "") + '"><b>' + off + "</b> off-session</span>" +
+      '<span class="' + (reviewed ? "up" : "") + '">' + (reviewed ? "\u2713 Week review written" : "Week review not written yet") + "</span>";
     var maxAbs = Math.max.apply(null, perDay.map(function(x){ return Math.abs(x.net); }).concat([1]));
     document.getElementById("weekBars").innerHTML = perDay.map(function(x, i){
       var h = x.closed.length ? Math.max(3, Math.abs(x.net) / maxAbs * 28) : 0;
@@ -6101,7 +6154,8 @@
         recon = document.getElementById("reconCard"), daysH = document.getElementById("daysHeading"),
         days = document.getElementById("weekDays"), review = document.getElementById("reviewCard"),
         xl = document.getElementById("xLaunch"), detail = document.getElementById("dayDetail");
-    var order = weekly ? [nav, wkCard, recon, daysH, days, review] : [nav, detail, review];
+    var dm = document.getElementById("dayMetricsCard");
+    var order = weekly ? [nav, wkCard, recon, daysH, days, review, dm] : [nav, dm, detail, review];
     order.forEach(function(el){ main.appendChild(el); });
     xl.style.display = "none"; // the Playbook opens from the header
     // Weekly is for review: the week comes first, the live-trading tools
@@ -6119,6 +6173,7 @@
       slot.parentNode.insertBefore(recon, slot);
     }
     [wkCard, daysH, days].forEach(function(el){ el.style.display = weekly ? "" : "none"; });
+    dm.style.display = weekly ? "none" : "";
     days.dataset.key = ""; // rebuild the day rows next time
     if(!weekly) days.innerHTML = "";
     document.getElementById("todayBtn").textContent = weekly ? "This week" : "Today";
@@ -6159,6 +6214,7 @@
     if(currentView === "stats") renderStatsView();
     renderDateLabel();
     renderWeek();
+    renderDayMetrics();
     renderLedger();
     renderReflection();
     renderStats();
