@@ -916,6 +916,72 @@
   .x-status div{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:7px 10px;border-radius:7px;background:var(--surface-2);}
   .x-status b{font-family:'IBM Plex Mono',monospace;}
 
+
+  /* ---------- Week view ---------- */
+  .week-nav .date-label{min-width:0;}
+  .week-nav .wk-sub{font-size:12px;color:var(--text-muted);width:100%;margin-top:-4px;}
+  .week-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;}
+  @media (max-width:960px){ .week-summary{grid-template-columns:repeat(3,minmax(0,1fr));} }
+  @media (max-width:480px){ .week-summary{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .week-summary .stat{padding:10px 12px;}
+  .week-summary .stat .value{font-size:17px;}
+  .week-summary .stat .sub{font-size:10.5px;color:var(--text-muted);margin-top:2px;}
+  .week-bars{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:14px;align-items:end;}
+  .wb{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;min-width:0;}
+  .wb .col{width:100%;height:56px;display:flex;flex-direction:column;justify-content:center;position:relative;}
+  .wb .col::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px dashed var(--border);}
+  .wb .up-half,.wb .down-half{height:28px;display:flex;justify-content:center;}
+  .wb .up-half{align-items:flex-end;} .wb .down-half{align-items:flex-start;}
+  .wb .bar{width:62%;max-width:34px;border-radius:3px;}
+  .wb .bar.g{background:var(--gain);} .wb .bar.l{background:var(--loss);}
+  .wb .lbl{font-size:10.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;}
+  .wb.sel .lbl{color:var(--amber);font-weight:700;}
+  .wb .amt{font-family:'IBM Plex Mono',monospace;font-size:10.5px;white-space:nowrap;}
+
+  .week-days{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+  .wd{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .wd.open{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber);}
+  .wd.empty:not(.open){background:transparent;border-style:dashed;}
+  .wd-head{
+    width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px 14px;align-items:center;
+    background:none;border:none;border-radius:0;padding:12px 16px;text-align:left;font-weight:400;letter-spacing:0;
+  }
+  .wd-head:hover{background:var(--surface-2);border:none;}
+  .wd-date{display:flex;align-items:baseline;gap:8px;min-width:118px;}
+  .wd-date .dow{font-family:'Fraunces',serif;font-size:16px;font-weight:600;}
+  .wd-date .dm{font-size:12px;color:var(--text-muted);}
+  .wd.empty:not(.open) .wd-date .dow{color:var(--text-muted);}
+  .wd-today{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:1px 7px;border-radius:20px;background:var(--amber);color:var(--amber-text);}
+  .wd-mid{display:flex;flex-wrap:wrap;gap:5px;min-width:0;align-items:center;}
+  .wd-trade{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface-2);border:1px solid var(--border);white-space:nowrap;}
+  .wd-trade .p{font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  .wd-trade .p.up{color:var(--gain);} .wd-trade .p.down{color:var(--loss);}
+  .wd-trade.flag{border-color:var(--loss);}
+  .wd-mood{font-size:10.5px;padding:1px 7px;border-radius:20px;background:var(--accent-light);color:var(--amber);white-space:nowrap;}
+  .wd-none{font-size:12px;color:var(--text-muted);}
+  .wd-meta{display:flex;gap:10px;font-size:11.5px;color:var(--text-muted);white-space:nowrap;}
+  .wd-pnl{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:15px;min-width:92px;text-align:right;white-space:nowrap;}
+  .wd-pnl.up{color:var(--gain);} .wd-pnl.down{color:var(--loss);} .wd-pnl.flat{color:var(--text-muted);font-weight:500;}
+  .wd-chev{grid-column:4;color:var(--text-muted);font-size:12px;transition:transform .15s;}
+  .wd.open .wd-chev{transform:rotate(90deg);}
+  .wd-head .wd-pnl{grid-column:3;}
+  @media (max-width:640px){
+    .wd-head{grid-template-columns:minmax(0,1fr) auto auto;}
+    .wd-date{grid-column:1;}
+    .wd-head .wd-pnl{grid-column:2;grid-row:1;}
+    .wd-chev{grid-column:3;grid-row:1;}
+    .wd-mid{grid-column:1 / -1;}
+  }
+  .wd-body{padding:4px 16px 16px;border-top:1px solid var(--border);background:var(--bg);}
+  .day-detail .card{box-shadow:none;margin:12px 0 0;}
+  .day-detail .dd-2col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;}
+  .day-detail .dd-2col > .card{margin-top:12px;}
+  @media (max-width:1100px){ .day-detail .dd-2col{grid-template-columns:minmax(0,1fr);} .day-detail .dd-2col > .card + .card{margin-top:0;} }
+  #dayDetailHolder{display:none;}
+  .review-card .card-head{margin-bottom:10px;}
+  .review-steps{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px;font-size:11.5px;color:var(--text-muted);}
+  .review-steps span{padding:2px 9px;border-radius:20px;background:var(--surface-2);border:1px solid var(--border);}
+
   /* Manual entry card: folded by default, opens on Edit */
   .manual-card.collapsed > :not(.card-head){display:none;}
   .manual-card.collapsed{padding-top:12px;padding-bottom:12px;}
@@ -1032,14 +1098,47 @@
     <!-- MAIN COLUMN -->
     <div class="col-main">
 
-      <div class="date-nav">
-        <button id="prevDay" class="btn-ghost" aria-label="Previous day">←</button>
+      <div class="date-nav week-nav">
+        <button id="prevDay" class="btn-ghost" aria-label="Previous week">←</button>
         <div class="date-label" id="dateLabel">—</div>
-        <button id="nextDay" class="btn-ghost" aria-label="Next day">→</button>
-        <input type="date" id="datePicker">
-        <button id="todayBtn" class="btn-ghost">Today</button>
+        <button id="nextDay" class="btn-ghost" aria-label="Next week">→</button>
+        <input type="date" id="datePicker" title="Jump to the week containing this date">
+        <button id="todayBtn" class="btn-ghost">This week</button>
         <span class="day-badge" id="dayBadge" hidden></span>
       </div>
+
+      <div class="card" id="weekCard">
+        <div class="card-head">
+          <h2 id="weekTitle">This week</h2>
+          <span class="eyebrow" id="weekScope">All accounts</span>
+        </div>
+        <div class="week-summary" id="weekSummary"></div>
+        <div class="week-bars" id="weekBars"></div>
+      </div>
+
+      <div class="card review-card" id="reconCard">
+        <div class="card-head"><h2>Weekly broker upload</h2><span class="eyebrow">once a week</span></div>
+        <div class="review-steps"><span>1 · Export this week’s trade history from each account</span><span>2 · Drop the CSVs here</span><span>3 · Reconcile, then review each day below</span></div>
+        <label class="rc-drop" id="reconDrop" for="reconFile">
+          Drop broker trade-history CSVs here, or click to choose<br>
+          <span style="font-size:11px;">One file per account · you can add several at once</span>
+        </label>
+        <input type="file" id="reconFile" accept=".csv,text/csv" multiple style="display:none;">
+        <ul class="rc-files" id="reconFileList"></ul>
+        <div class="util-row" style="margin-top:10px;">
+          <button id="reconRunBtn" class="btn-primary" disabled>Reconcile</button>
+          <button id="reconUndoBtn" class="btn-ghost" style="display:none;">Undo</button>
+          <button id="reconClearBtn" class="btn-ghost" style="display:none;">Clear</button>
+        </div>
+        <div class="rc-summary" id="reconResult"></div>
+        <p class="sync-hint">Fixes entry, exit, size, side, date, fee and P&amp;L to match the broker, and adds trades the journal is missing. Your analysis, checklist, notes and screenshots are never touched. Journal trades the broker file doesn't contain are only flagged, never deleted.</p>
+      </div>
+
+      <div class="section-heading">
+        <h2>Days</h2>
+        <span class="eyebrow">Click a day to open its trades, reflection and screenshots</span>
+      </div>
+      <div class="week-days" id="weekDays"></div>
 
       <div class="card x-launch">
         <div>
@@ -1049,6 +1148,7 @@
         <button type="button" class="btn-primary" id="xOpen">Start execution →</button>
       </div>
 
+      <div id="dayDetailHolder"><div class="day-detail" id="dayDetail">
       <div class="card manual-card collapsed" id="manualCard">
         <div class="card-head manual-head">
           <button type="button" class="manual-toggle" id="manualToggle" aria-expanded="false" aria-controls="manualCard">
@@ -1156,7 +1256,7 @@
 
       <div class="card">
         <div class="card-head">
-          <h2>Today's ledger</h2>
+          <h2>Trades</h2>
           <span class="eyebrow" id="dayCount">0 trades</span>
         </div>
         <div style="overflow-x:auto;">
@@ -1172,6 +1272,7 @@
         <div class="empty-state" id="emptyState" style="display:none;">No trades logged for this day yet. Add one above.</div>
       </div>
 
+      <div class="dd-2col">
       <div class="card">
         <div class="card-head"><h2>Reflection</h2></div>
         <div class="mood-row" id="moodRow">
@@ -1183,7 +1284,7 @@
           <div class="mood-chip" data-mood="Greedy">Greedy</div>
           <div class="mood-chip" data-mood="Disciplined">Disciplined</div>
         </div>
-        <textarea id="reflectionText" placeholder="What went well today? What would you do differently? Any rules broken?"></textarea>
+        <textarea id="reflectionText" placeholder="What went well this day? What would you do differently? Any rules broken?"></textarea>
         <div class="form-actions"><button id="saveReflection" class="btn-primary">Save reflection</button></div>
       </div>
 
@@ -1197,6 +1298,8 @@
         <div class="shot-grid" id="shotGrid"></div>
         <div class="shot-empty-note" id="shotEmptyNote" style="display:none;">No screenshots for this day yet.</div>
       </div>
+      </div><!-- /dd-2col -->
+      </div></div><!-- /dayDetail -->
 
     </div>
 
@@ -1278,22 +1381,6 @@
         <p class="sync-hint" id="storageUsage"></p>
       </div>
 
-      <div class="card" id="reconCard">
-        <div class="card-head"><h2>Broker reconciliation</h2></div>
-        <label class="rc-drop" id="reconDrop" for="reconFile">
-          Drop broker trade-history CSVs here, or click to choose<br>
-          <span style="font-size:11px;">One file per account · you can add several at once</span>
-        </label>
-        <input type="file" id="reconFile" accept=".csv,text/csv" multiple style="display:none;">
-        <ul class="rc-files" id="reconFileList"></ul>
-        <div class="util-row" style="margin-top:10px;">
-          <button id="reconRunBtn" class="btn-primary" disabled>Reconcile</button>
-          <button id="reconUndoBtn" class="btn-ghost" style="display:none;">Undo</button>
-          <button id="reconClearBtn" class="btn-ghost" style="display:none;">Clear</button>
-        </div>
-        <div class="rc-summary" id="reconResult"></div>
-        <p class="sync-hint">Fixes entry, exit, size, side, date, fee and P&amp;L to match the broker, and adds trades the journal is missing. Your analysis, checklist, notes and screenshots are never touched. Journal trades the broker file doesn't contain are only flagged, never deleted.</p>
-      </div>
 
       <div class="card">
         <div class="card-head">
@@ -2474,8 +2561,8 @@
   // ---------- Date nav ----------
   var elDateLabel = document.getElementById("dateLabel");
   var elDatePicker = document.getElementById("datePicker");
-  document.getElementById("prevDay").addEventListener("click", function(){ shiftDay(-1); });
-  document.getElementById("nextDay").addEventListener("click", function(){ shiftDay(1); });
+  document.getElementById("prevDay").addEventListener("click", function(){ shiftDay(-7); });
+  document.getElementById("nextDay").addEventListener("click", function(){ shiftDay(7); });
   document.getElementById("todayBtn").addEventListener("click", function(){ setSelectedDate(todayStr()); });
   elDatePicker.addEventListener("change", function(){ if(elDatePicker.value) setSelectedDate(elDatePicker.value); });
 
@@ -2486,6 +2573,7 @@
   }
   function setSelectedDate(ds){
     selectedDate = ds;
+    weekDayOpen = true;
     calCursor = parseDate(ds);
     resetForm();
     renderAll();
@@ -2496,7 +2584,9 @@
 
   function renderDateLabel(){
     var d = parseDate(selectedDate);
-    elDateLabel.textContent = WEEKDAY[d.getDay()] + ", " + MONTH[d.getMonth()] + " " + d.getDate();
+    var wk = weekDates(selectedDate), a = parseDate(wk[0]), b = parseDate(wk[6]);
+    elDateLabel.textContent = "Week of " + MONTH[a.getMonth()].slice(0,3) + " " + a.getDate() + " \u2013 " +
+      (a.getMonth() === b.getMonth() ? "" : MONTH[b.getMonth()].slice(0,3) + " ") + b.getDate() + ", " + b.getFullYear();
     elDatePicker.value = selectedDate;
     renderDayBadge();
   }
@@ -2666,6 +2756,7 @@
       images: (existing && existing.images) ? existing.images : []
     };
     saveData();
+    renderWeek();
     var btn = document.getElementById("saveReflection");
     var original = btn.textContent;
     btn.textContent = "Saved";
@@ -3294,6 +3385,7 @@
   }
 
   function renderCalendar(){
+    if(typeof renderWeek === "function" && document.getElementById("weekDays").children.length) renderWeek();
     elCalLabel.textContent = MONTH[calCursor.getMonth()] + " " + calCursor.getFullYear();
     elCalGrid.innerHTML = "";
     ["S","M","T","W","T","F","S"].forEach(function(d){
@@ -5557,9 +5649,157 @@
   elXOverlay.addEventListener("click", function(e){ if(e.target === elXOverlay) closeExecute(false); });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && X) closeExecute(false); });
 
+  // ---------- Week view (UI only) ----------
+  // Shows the week (Mon-Sun) that contains selectedDate as a list of days.
+  // The open day is always selectedDate; the existing day panels (manual
+  // form, trades, reflection, screenshots) are moved inside that day's row,
+  // so every save still goes to selectedDate exactly as before.
+  var weekDayOpen = true;
+  function weekDates(ds){
+    var d = parseDate(ds), off = (d.getDay() + 6) % 7, out = [];
+    d.setDate(d.getDate() - off);
+    for(var i = 0; i < 7; i++){ out.push(fmtDate(d)); d.setDate(d.getDate() + 1); }
+    return out;
+  }
+  function daySummary(ds){
+    var trades = tradesForDay(ds), closed = trades.filter(isClosed);
+    var net = closed.reduce(function(s2, t){ return s2 + t.pnl; }, 0);
+    var note = data.notes[ds] || {};
+    return {
+      trades: trades, closed: closed, net: net,
+      wins: closed.filter(function(t){ return t.pnl > 0; }).length,
+      losses: closed.filter(function(t){ return t.pnl < 0; }).length,
+      moods: note.moods || [], hasNote: !!(note.text && note.text.trim()),
+      shots: (note.images || []).length,
+      breaks: trades.filter(function(t){ return t.ruleBreak; }).length,
+      off: trades.filter(function(t){ return t.offSession; }).length
+    };
+  }
+  function weekDayHeadHtml(ds, sm){
+    var d = parseDate(ds), isToday = ds === todayStr();
+    var mid = "";
+    sm.trades.forEach(function(t){
+      var st = tradeStatus(t), p;
+      if(st === "closed") p = '<span class="p ' + (t.pnl > 0 ? "up" : (t.pnl < 0 ? "down" : "")) + '">' + sMoney(t.pnl) + "</span>";
+      else p = '<span class="p">' + (st === "open" ? "open" : "plan") + "</span>";
+      mid += '<span class="wd-trade' + (t.ruleBreak || t.offSession ? " flag" : "") + '" title="' +
+        (t.ruleBreak ? "Rule break " : "") + (t.offSession ? "Off-session" : "") + '">' +
+        "<b>" + escapeHtml(t.symbol) + "</b>" + (t.side === "long" ? "▲" : "▼") + p + "</span>";
+    });
+    sm.moods.forEach(function(m){ mid += '<span class="wd-mood">' + escapeHtml(m) + "</span>"; });
+    var meta = [];
+    if(sm.hasNote) meta.push("📝");
+    if(sm.shots) meta.push("🖼 " + sm.shots);
+    if(meta.length) mid += '<span class="wd-meta">' + meta.join(" ") + "</span>";
+    if(!mid) mid = '<span class="wd-none">' + ((d.getDay() === 0 || d.getDay() === 6) ? "Weekend" : "No trades") + "</span>";
+    var pnlHtml = sm.closed.length
+      ? '<span class="wd-pnl ' + (sm.net > 0 ? "up" : (sm.net < 0 ? "down" : "flat")) + '">' + sMoney(sm.net) + "</span>"
+      : '<span class="wd-pnl flat">' + (sm.trades.length ? sm.trades.length + " open" : "—") + "</span>";
+    return '<span class="wd-date"><span class="dow">' + WEEKDAY[d.getDay()].slice(0, 3) + '</span><span class="dm">' +
+        MONTH[d.getMonth()].slice(0, 3) + " " + d.getDate() + "</span>" + (isToday ? '<span class="wd-today">Today</span>' : "") + "</span>" +
+      '<span class="wd-mid">' + mid + "</span>" + pnlHtml + '<span class="wd-chev" aria-hidden="true">▸</span>';
+  }
+  function renderWeekSummary(dates){
+    var all = [], perDay = dates.map(function(ds){ var sm = daySummary(ds); all = all.concat(sm.trades); return sm; });
+    var closed = all.filter(isClosed);
+    var net = closed.reduce(function(s2, t){ return s2 + t.pnl; }, 0);
+    var wins = closed.filter(function(t){ return t.pnl > 0; }).length, losses = closed.filter(function(t){ return t.pnl < 0; }).length;
+    var traded = perDay.filter(function(x){ return x.trades.length; }).length;
+    var best = null, worst = null;
+    perDay.forEach(function(x, i){
+      if(!x.closed.length) return;
+      if(!best || x.net > best.net) best = { net: x.net, i: i };
+      if(!worst || x.net < worst.net) worst = { net: x.net, i: i };
+    });
+    var breaks = all.filter(function(t){ return t.ruleBreak; }).length, off = all.filter(function(t){ return t.offSession; }).length;
+    var reflected = perDay.filter(function(x){ return x.hasNote; }).length;
+    function card(label, value, c, sub){ return '<div class="stat"><div class="label">' + label + '</div><div class="value ' + (c || "") + '">' + value + '</div>' + (sub ? '<div class="sub">' + sub + "</div>" : "") + "</div>"; }
+    var wkDays = dates.map(function(ds){ return WEEKDAY[parseDate(ds).getDay()].slice(0, 3); });
+    document.getElementById("weekSummary").innerHTML =
+      card("Week P&amp;L", closed.length ? sMoney(net) : "—", cls(net), closed.length + " closed" + (all.length - closed.length ? " · " + (all.length - closed.length) + " open" : "")) +
+      card("Win rate", (wins + losses) ? (wins / (wins + losses) * 100).toFixed(0) + "%" : "—", "", wins + "W · " + losses + "L") +
+      card("Days traded", traded + " / 5", "", reflected + " reflected") +
+      card("Best day", best ? sMoney(best.net) : "—", best ? cls(best.net) : "", best ? wkDays[best.i] : "") +
+      card("Worst day", worst ? sMoney(worst.net) : "—", worst ? cls(worst.net) : "", worst ? wkDays[worst.i] : "") +
+      card("Rule breaks", String(breaks), breaks ? "down" : "", off + " off-session");
+    var maxAbs = Math.max.apply(null, perDay.map(function(x){ return Math.abs(x.net); }).concat([1]));
+    document.getElementById("weekBars").innerHTML = perDay.map(function(x, i){
+      var h = x.closed.length ? Math.max(3, Math.abs(x.net) / maxAbs * 28) : 0;
+      return '<div class="wb' + (dates[i] === selectedDate ? " sel" : "") + '" data-ds="' + dates[i] + '" title="' + wkDays[i] + (x.closed.length ? ": " + money(x.net) : "") + '">' +
+        '<span class="amt ' + cls(x.net) + '">' + (x.closed.length ? fmtAxis(x.net) : "") + "</span>" +
+        '<div class="col"><div class="up-half">' + (x.net > 0 ? '<span class="bar g" style="height:' + h + 'px"></span>' : "") + "</div>" +
+        '<div class="down-half">' + (x.net < 0 ? '<span class="bar l" style="height:' + h + 'px"></span>' : "") + "</div></div>" +
+        '<span class="lbl">' + wkDays[i] + "</span></div>";
+    }).join("");
+    var a = parseDate(dates[0]);
+    var thisWeek = dates.indexOf(todayStr()) > -1;
+    document.getElementById("weekTitle").textContent = thisWeek ? "This week" : "Week " + isoWeek(a);
+    document.getElementById("weekScope").textContent = activeFirmFilter === "All" ? "All accounts" : (accountById(activeFirmFilter) ? accountById(activeFirmFilter).name : "—");
+  }
+  function isoWeek(d){
+    var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    var day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
+    var y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    return Math.ceil(((t - y0) / 86400000 + 1) / 7);
+  }
+  function renderWeek(){
+    var wrap = document.getElementById("weekDays");
+    var detail = document.getElementById("dayDetail");
+    var holder = document.getElementById("dayDetailHolder");
+    if(!wrap || !detail) return;
+    var dates = weekDates(selectedDate);
+    renderWeekSummary(dates);
+    var key = dates[0] + "|" + selectedDate + "|" + weekDayOpen;
+    if(wrap.dataset.key !== key){
+      // Structure changed (new week, other day opened): rebuild rows.
+      holder.appendChild(detail);
+      wrap.innerHTML = "";
+      dates.forEach(function(ds){
+        var row = document.createElement("div");
+        row.className = "wd";
+        row.dataset.ds = ds;
+        var head = document.createElement("button");
+        head.type = "button";
+        head.className = "wd-head";
+        head.addEventListener("click", function(){
+          if(ds === selectedDate){ weekDayOpen = !weekDayOpen; renderWeek(); return; }
+          weekDayOpen = true;
+          setSelectedDate(ds);
+        });
+        row.appendChild(head);
+        if(ds === selectedDate && weekDayOpen){
+          row.classList.add("open");
+          var body = document.createElement("div");
+          body.className = "wd-body";
+          body.appendChild(detail);
+          row.appendChild(body);
+        }
+        wrap.appendChild(row);
+      });
+      wrap.dataset.key = key;
+    }
+    // Refresh the day headers in place (keeps focus and typing in the open day).
+    Array.prototype.forEach.call(wrap.children, function(row){
+      var ds = row.dataset.ds, sm = daySummary(ds);
+      row.classList.toggle("empty", !sm.trades.length && !sm.hasNote && !sm.shots);
+      var head = row.querySelector(".wd-head");
+      head.innerHTML = weekDayHeadHtml(ds, sm);
+      head.setAttribute("aria-expanded", row.classList.contains("open") ? "true" : "false");
+    });
+  }
+  document.getElementById("weekBars").addEventListener("click", function(e){
+    var b = e.target.closest(".wb"); if(!b) return;
+    weekDayOpen = true;
+    if(b.dataset.ds === selectedDate){ renderWeek(); }
+    else setSelectedDate(b.dataset.ds);
+    var row = document.querySelector('.wd[data-ds="' + b.dataset.ds + '"]');
+    if(row) row.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
   function renderAll(){
     if(currentView === "stats") renderStatsView();
     renderDateLabel();
+    renderWeek();
     renderLedger();
     renderReflection();
     renderStats();
