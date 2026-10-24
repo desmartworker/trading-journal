@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1018,6 +1019,29 @@
   .review-steps{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px;font-size:11.5px;color:var(--text-muted);}
   .review-steps span{padding:2px 9px;border-radius:20px;background:var(--surface-2);border:1px solid var(--border);}
 
+
+  /* ---------- Declutter pass ---------- */
+  .pb-header-btn{padding:6px 12px;font-size:12.5px;border-radius:8px;background:var(--surface-2);}
+  .acc-compact{padding:14px 16px;margin-bottom:10px;}
+  .acc-row{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .acc-left{min-width:0;}
+  .acc-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-family:'Fraunces',serif;font-weight:600;font-size:14.5px;}
+  .acc-title .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .acc-title .acc-name{overflow-wrap:anywhere;}
+  .acc-sub{font-size:11.5px;color:var(--text-muted);margin-top:3px;}
+  .acc-sub .up{color:var(--gain);} .acc-sub .down{color:var(--loss);}
+  .acc-bal{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:17px;white-space:nowrap;}
+  .acc-bal.up{color:var(--gain);} .acc-bal.down{color:var(--loss);}
+  .acc-settings{margin-top:8px;}
+  .acc-settings summary{cursor:pointer;font-size:11.5px;color:var(--text-muted);user-select:none;}
+  .acc-settings summary:hover{color:var(--amber);}
+  .acc-settings .form-grid{margin-top:10px;}
+  .acc-settings .balance-remove{margin-top:10px;width:100%;padding:6px 10px !important;}
+  .week-head-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .link-btn{border:none;background:none;padding:0;font-size:12px;color:var(--amber);font-weight:600;letter-spacing:0;}
+  .link-btn:hover{border:none;text-decoration:underline;}
+  .journal-after{margin-top:8px;}
+  .journal-after .section-heading{margin-top:6px;}
   /* Manual entry card: folded by default, opens on Edit */
   .manual-card.collapsed > :not(.card-head){display:none;}
   .manual-card.collapsed{padding-top:12px;padding-bottom:12px;}
@@ -1043,6 +1067,7 @@
         <button type="button" class="view-tab" data-view="journal" role="tab">Journal</button>
         <button type="button" class="view-tab" data-view="stats" role="tab">Statistics</button>
       </nav>
+      <button type="button" class="pb-header-btn" id="pbHeaderBtn" title="Your rules, sessions and lot-size calculator">📘 Playbook</button>
       <button type="button" class="mode-switch" id="modeSwitch" aria-label="Switch journal layout" title="Switch between weekly and daily view">
         <span data-mode="weekly">Weekly</span><span data-mode="daily">Daily</span>
       </button>
@@ -1093,7 +1118,7 @@
     </div>
   </div>
 
-  <div class="top-row">
+  <div class="top-row" id="topRow">
   <div class="card" id="calendarCard">
     <div class="cal-nav">
       <button id="calPrev">←</button>
@@ -1132,7 +1157,7 @@
     </div>
   </div>
 
-  <div class="grid">
+  <div class="grid" id="journalGrid">
 
     <!-- MAIN COLUMN -->
     <div class="col-main" id="colMain">
@@ -1149,7 +1174,7 @@
       <div class="card" id="weekCard">
         <div class="card-head">
           <h2 id="weekTitle">This week</h2>
-          <span class="eyebrow" id="weekScope">All accounts</span>
+          <span class="week-head-right"><span class="eyebrow" id="weekScope">All accounts</span><button type="button" class="btn-ghost link-btn" id="weekToStats">All-time statistics →</button></span>
         </div>
         <div class="week-summary" id="weekSummary"></div>
         <div class="week-bars" id="weekBars"></div>
@@ -1356,7 +1381,6 @@
       <div id="balanceCardsWrap"><!-- filled by JS: one .card per account --></div>
 
       <div class="card">
-        <div class="card-head"><h2>Add account</h2></div>
         <button id="addAccountBtn" class="btn-ghost" style="width:100%;">+ Add account</button>
         <div id="addAccountForm" style="display:none;margin-top:14px;">
           <div class="form-grid form-grid-2">
@@ -3538,6 +3562,7 @@
     return data.trades.filter(function(t){ return t.accountId === accountId && isClosed(t); })
       .reduce(function(s,t){ return s + t.pnl; }, 0);
   }
+  var accSettingsOpen = {};
   function renderBalances(){
     var wrap = document.getElementById("balanceCardsWrap");
     var countEl = document.getElementById("accountCountLabel");
@@ -3561,23 +3586,22 @@
       var accOpenCount = accAllTrades.length - accClosedCount;
       var tradeCountLabel = accAllTrades.length + (accAllTrades.length === 1 ? " trade" : " trades") +
         (accOpenCount ? " (" + accOpenCount + " open)" : "");
+      var chg = current - starting;
+      card.className = "card account-balance-card acc-compact";
       card.innerHTML =
-        '<div class="card-head">'+
-          '<h2><span class="dot" style="background:'+firmDotColor(acc.firmType)+';"></span><span class="acc-name">'+escapeHtml(acc.name)+'</span> '+stageBadgeHtml(acc.stage)+'</h2>'+
-          '<button class="btn-ghost btn-danger balance-remove" title="Remove account">✕</button>'+
+        '<div class="acc-row">'+
+          '<div class="acc-left"><div class="acc-title"><span class="dot" style="background:'+firmDotColor(acc.firmType)+';"></span><span class="acc-name">'+escapeHtml(acc.name)+'</span> '+stageBadgeHtml(acc.stage)+'</div>'+
+          '<div class="acc-sub">'+tradeCountLabel+(starting ? ' \u00b7 <span class="'+diffClass+'">'+sMoney(chg)+' ('+fmtPct(chg / starting * 100)+')</span>' : '')+'</div></div>'+
+          '<div class="acc-bal '+diffClass+'">'+money(current)+'</div>'+
         '</div>'+
-        '<div class="form-grid form-grid-2">'+
-          '<div class="field"><label>Stage</label><select class="stage-select">'+stageOptionsHtml+'</select></div>'+
-          '<div class="field"><label>Starting balance</label><input type="number" step="any" value="'+starting+'"></div>'+
-        '</div>'+
-        '<div class="balance-trade-count">'+
-          '<span>Total trades</span>'+
-          '<span class="value">'+tradeCountLabel+'</span>'+
-        '</div>'+
-        '<div class="balance-current-big">'+
-          '<span class="label">Current</span>'+
-          '<span class="value '+diffClass+'">'+money(current)+'</span>'+
-        '</div>';
+        '<details class="acc-settings"'+(accSettingsOpen[acc.id] ? ' open' : '')+'><summary>Edit account</summary>'+
+          '<div class="form-grid form-grid-2">'+
+            '<div class="field"><label>Stage</label><select class="stage-select">'+stageOptionsHtml+'</select></div>'+
+            '<div class="field"><label>Starting balance</label><input type="number" step="any" value="'+starting+'"></div>'+
+          '</div>'+
+          '<button class="btn-ghost btn-danger balance-remove" title="Remove account">Remove account</button>'+
+        '</details>';
+      card.querySelector(".acc-settings").addEventListener("toggle", function(e){ accSettingsOpen[acc.id] = e.target.open; });
       var input = card.querySelector("input");
       input.addEventListener("change", function(){
         var v = parseFloat(input.value);
@@ -5852,6 +5876,8 @@
   elPbOverlay.addEventListener("click", function(e){ if(e.target === elPbOverlay) closePlaybook(); });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && elPbOverlay.classList.contains("open")) closePlaybook(); });
   document.getElementById("xOpen").addEventListener("click", openPlaybook);
+  document.getElementById("pbHeaderBtn").addEventListener("click", openPlaybook);
+  document.getElementById("weekToStats").addEventListener("click", function(){ setView("stats"); });
   document.getElementById("xClose").addEventListener("click", function(){ closeExecute(false); });
   elXOverlay.addEventListener("click", function(e){ if(e.target === elXOverlay) closeExecute(false); });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && X) closeExecute(false); });
@@ -5985,6 +6011,8 @@
     Array.prototype.forEach.call(wrap.children, function(row){
       var ds = row.dataset.ds, sm = daySummary(ds);
       row.classList.toggle("empty", !sm.trades.length);
+      var dow = parseDate(ds).getDay();
+      row.style.display = (!sm.trades.length && (dow === 0 || dow === 6) && ds !== selectedDate) ? "none" : "";
       var head = row.querySelector(".wd-head");
       head.innerHTML = weekDayHeadHtml(ds, sm);
       head.setAttribute("aria-expanded", row.classList.contains("open") ? "true" : "false");
@@ -6038,8 +6066,19 @@
         recon = document.getElementById("reconCard"), daysH = document.getElementById("daysHeading"),
         days = document.getElementById("weekDays"), review = document.getElementById("reviewCard"),
         xl = document.getElementById("xLaunch"), detail = document.getElementById("dayDetail");
-    var order = weekly ? [nav, wkCard, recon, daysH, days, review, xl] : [nav, xl, detail, review];
+    var order = weekly ? [nav, wkCard, recon, daysH, days, review] : [nav, detail, review];
     order.forEach(function(el){ main.appendChild(el); });
+    xl.style.display = "none"; // the Playbook opens from the header
+    // Weekly is for review: the week comes first, the live-trading tools
+    // (economic calendar) and month context (P&L calendar, equity) go below.
+    var vj = document.getElementById("viewJournal"), news = document.getElementById("newsCard"),
+        top = document.getElementById("topRow"), grid = document.getElementById("journalGrid");
+    if(weekly){ vj.appendChild(grid); vj.appendChild(top); vj.appendChild(news); }
+    else { vj.appendChild(news); vj.appendChild(top); vj.appendChild(grid); }
+    top.style.marginTop = weekly ? "4px" : "";
+    // The sidebar Performance card repeats the Statistics tab; Weekly links there instead.
+    document.getElementById("perfCard").style.display = weekly ? "none" : "";
+    document.getElementById("weekBars").style.display = "none"; // the day list already shows each day's P&L
     if(!weekly){
       var slot = document.getElementById("reconSideSlot");
       slot.parentNode.insertBefore(recon, slot);
@@ -6107,9 +6146,12 @@
   renderModelManager();
   updateStorageUsage(JSON.stringify(data).length);
   applyJournalMode();
+  weekDayOpen = tradesForDay(selectedDate).length > 0;
   renderAll();
   setView(currentView, true);
 })();
 </script>
 </body>
 </html>
+
+</body></html>
