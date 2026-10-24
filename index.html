@@ -1042,6 +1042,11 @@
   .link-btn:hover{border:none;text-decoration:underline;}
   .journal-after{margin-top:8px;}
   .journal-after .section-heading{margin-top:6px;}
+  .st-head-l{display:flex;align-items:baseline;gap:8px 16px;flex-wrap:wrap;}
+  .st-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .st-range .toggle-group button{font-size:12px;padding:6px 12px;}
+  .st-range .st-shift{padding:4px 10px;}
+  .st-range .st-period{font-family:'Fraunces',serif;font-weight:600;font-size:14px;min-width:120px;text-align:center;}
   /* Manual entry card: folded by default, opens on Edit */
   .manual-card.collapsed > :not(.card-head){display:none;}
   .manual-card.collapsed{padding-top:12px;padding-bottom:12px;}
@@ -1063,14 +1068,14 @@
   <div class="tape-top">
     <div class="brand">
       <h1>Funded Trading Journal</h1>
+      <button type="button" class="mode-switch" id="modeSwitch" aria-label="Switch journal layout" title="Switch between weekly and daily view">
+        <span data-mode="weekly">Weekly</span><span data-mode="daily">Daily</span>
+      </button>
       <nav class="view-tabs" role="tablist" aria-label="View">
         <button type="button" class="view-tab" data-view="journal" role="tab">Journal</button>
         <button type="button" class="view-tab" data-view="stats" role="tab">Statistics</button>
       </nav>
       <button type="button" class="pb-header-btn" id="pbHeaderBtn" title="Your rules, sessions and lot-size calculator">📘 Playbook</button>
-      <button type="button" class="mode-switch" id="modeSwitch" aria-label="Switch journal layout" title="Switch between weekly and daily view">
-        <span data-mode="weekly">Weekly</span><span data-mode="daily">Daily</span>
-      </button>
     </div>
     <div class="header-right">
       <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"></button>
@@ -4575,10 +4580,29 @@
     return { n: n, wins: w, net: net, winRate: n ? w / n * 100 : null, avg: n ? net / n : null };
   }
 
+  // Statistics range (UI only): "all" = every trade ever logged; "period" =
+  // the week or day picked with the Weekly / Daily switch. For a period the
+  // starting balance is the balance just before it, so growth stays correct.
+  var statsRange = "all";
+  function statsPeriod(){
+    if(statsRange !== "period") return null;
+    var d = journalMode === "weekly" ? weekDates(selectedDate) : [selectedDate];
+    return { from: d[0], to: d[d.length - 1] };
+  }
+  function periodLabel(){
+    var d = journalMode === "weekly" ? weekDates(selectedDate) : [selectedDate];
+    var a = parseDate(d[0]), b = parseDate(d[d.length - 1]);
+    if(d.length === 1) return WEEKDAY[a.getDay()].slice(0, 3) + " " + MONTH[a.getMonth()].slice(0, 3) + " " + a.getDate();
+    return "Week " + MONTH[a.getMonth()].slice(0, 3) + " " + a.getDate() + " \u2013 " + (a.getMonth() === b.getMonth() ? "" : MONTH[b.getMonth()].slice(0, 3) + " ") + b.getDate();
+  }
   function computeStatistics(){
-    var all = filteredTrades();
+    var all = filteredTrades(), per = statsPeriod(), before = 0;
+    if(per){
+      before = all.filter(function(t){ return isClosed(t) && t.date < per.from; }).reduce(function(x, t){ return x + t.pnl; }, 0);
+      all = all.filter(function(t){ return t.date >= per.from && t.date <= per.to; });
+    }
     var closed = all.filter(isClosed).slice().sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
-    var start = computeStartingBalance();
+    var start = computeStartingBalance() + before;
     var st = { start: start, closed: closed, n: closed.length, open: all.length - closed.length };
     if(!closed.length) return st;
 
@@ -4934,6 +4958,10 @@
     if(!root.dataset.wired){
       root.dataset.wired = "1";
       root.addEventListener("click", function(e){
+        var rb = e.target.closest("[data-range]");
+        if(rb){ statsRange = rb.dataset.range; renderStatsView(); return; }
+        var sh = e.target.closest("[data-shift]");
+        if(sh){ shiftDay((journalMode === "weekly" ? 7 : 1) * parseInt(sh.dataset.shift, 10)); return; }
         var btn = e.target.closest(".acct-open-btn");
         if(!btn) return;
         var id = btn.getAttribute("data-acc");
@@ -4949,18 +4977,25 @@
     }
     var st = computeStatistics();
     var accLabel = activeFirmFilter === "All" ? "All accounts" : (accountById(activeFirmFilter) ? accountById(activeFirmFilter).name : "\u2014");
-    var head = '<div class="st-head"><h2>Statistics</h2><span class="eyebrow">' + escapeHtml(accLabel) +
-      (st.n ? " \u00b7 " + fmtShortDate(st.first) + " \u2013 " + fmtShortDate(st.last) + " " + st.last.slice(0, 4) : "") + "</span></div>";
+    var per = statsPeriod(), unit = journalMode === "weekly" ? "week" : "day";
+    var range = '<div class="st-range"><div class="toggle-group">' +
+        '<button type="button" data-range="all" class="' + (per ? "" : "active") + '">All time</button>' +
+        '<button type="button" data-range="period" class="' + (per ? "active" : "") + '">' + (journalMode === "weekly" ? "This week" : "This day") + "</button></div>" +
+        (per ? '<button type="button" class="btn-ghost st-shift" data-shift="-1" aria-label="Previous ' + unit + '">\u2190</button><span class="st-period">' + escapeHtml(periodLabel()) +
+          '</span><button type="button" class="btn-ghost st-shift" data-shift="1" aria-label="Next ' + unit + '">\u2192</button>' : "") + "</div>";
+    var head = '<div class="st-head"><div class="st-head-l"><h2>Statistics</h2><span class="eyebrow">' + escapeHtml(accLabel) +
+      (st.n ? " \u00b7 " + fmtShortDate(st.first) + " \u2013 " + fmtShortDate(st.last) + " " + st.last.slice(0, 4) : "") + "</span></div>" + range + "</div>";
     if(!st.n){
       root.innerHTML = head + statsSkeleton(st);
+      if(per){ var nt = root.querySelector(".st-empty-notice"); if(nt) nt.textContent = "No closed trades in this " + unit + ". Use the arrows to move, or switch to All time."; }
       return;
     }
     var pfStr = st.pf === null ? "\u2014" : (st.pf === Infinity ? "\u221e" : st.pf.toFixed(2));
     var hero = '<div class="st-hero">' +
-      '<div class="stat"><div class="label">Growth</div><div class="value ' + cls(st.growth || 0) + '">' + (st.growth === null ? "\u2014" : fmtPct(st.growth)) + '</div><div class="sub">since first trade</div></div>' +
+      '<div class="stat"><div class="label">Growth</div><div class="value ' + cls(st.growth || 0) + '">' + (st.growth === null ? "\u2014" : fmtPct(st.growth)) + '</div><div class="sub">' + (per ? "this " + unit : "since first trade") + '</div></div>' +
       '<div class="stat"><div class="label">Net profit</div><div class="value ' + cls(st.net) + '">' + sMoney(st.net) + '</div><div class="sub">after fees</div></div>' +
       '<div class="stat"><div class="label">Equity</div><div class="value">' + money(st.eq) + '</div><div class="sub">closed trades only</div></div>' +
-      '<div class="stat"><div class="label">Initial deposit</div><div class="value">' + money(st.start) + '</div><div class="sub">starting balance</div></div>' +
+      '<div class="stat"><div class="label">' + (per ? "Opening balance" : "Initial deposit") + '</div><div class="value">' + money(st.start) + '</div><div class="sub">' + (per ? "at the start of this " + unit : "starting balance") + '</div></div>' +
       '<div class="stat"><div class="label">Win rate</div><div class="value">' + (st.wins / st.n * 100).toFixed(1) + '%</div><div class="sub">' + st.wins + " of " + st.n + " trades</div></div>" +
       '<div class="stat"><div class="label">Profit factor</div><div class="value ' + (st.pf !== null && st.pf >= 1 ? "up" : "down") + '">' + pfStr + '</div><div class="sub">gross profit \u00f7 gross loss</div></div>' +
     "</div>";
@@ -5877,7 +5912,7 @@
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && elPbOverlay.classList.contains("open")) closePlaybook(); });
   document.getElementById("xOpen").addEventListener("click", openPlaybook);
   document.getElementById("pbHeaderBtn").addEventListener("click", openPlaybook);
-  document.getElementById("weekToStats").addEventListener("click", function(){ setView("stats"); });
+  document.getElementById("weekToStats").addEventListener("click", function(){ statsRange = "all"; setView("stats"); });
   document.getElementById("xClose").addEventListener("click", function(){ closeExecute(false); });
   elXOverlay.addEventListener("click", function(e){ if(e.target === elXOverlay) closeExecute(false); });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && X) closeExecute(false); });
@@ -6111,7 +6146,6 @@
   function setJournalMode(m){
     if(m === journalMode) return;
     journalMode = m;
-    if(currentView !== "journal") setView("journal", true);
     renderReflection.lastRd = null;
     elReflectionText.dataset.dirty = "";
     applyJournalMode();
