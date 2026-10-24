@@ -987,8 +987,10 @@
   .day-review .form-actions{margin-top:12px;}
   #dayDetailHolder{display:none;}
   #colMain > .day-detail .card{margin:0 0 20px;box-shadow:0 1px 2px rgba(20,18,10,0.04);}
-  .brand .mode-tabs .view-tab.active{background:var(--amber);color:var(--amber-text);}
-  .brand .mode-tabs[hidden]{display:none;}
+  .mode-switch{display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);font-weight:600;}
+  .mode-switch span{padding:5px 14px;border-radius:6px;font-size:12.5px;color:var(--text-muted);transition:background .15s,color .15s;}
+  .mode-switch span.active{background:var(--amber);color:var(--amber-text);}
+  .mode-switch:hover span:not(.active){color:var(--text);}
   .dr-older{margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);}
   .dr-older .dr-label{margin-bottom:6px;}
   .dr-older-item{font-size:12.5px;line-height:1.5;padding:6px 0;border-top:1px solid var(--border);white-space:pre-wrap;word-break:break-word;}
@@ -1024,10 +1026,9 @@
         <button type="button" class="view-tab" data-view="journal" role="tab">Journal</button>
         <button type="button" class="view-tab" data-view="stats" role="tab">Statistics</button>
       </nav>
-      <nav class="view-tabs mode-tabs" id="modeTabs" aria-label="Journal layout">
-        <button type="button" class="view-tab" data-mode="daily" aria-pressed="false">Daily</button>
-        <button type="button" class="view-tab" data-mode="weekly" aria-pressed="false">Weekly</button>
-      </nav>
+      <button type="button" class="mode-switch" id="modeSwitch" aria-label="Switch journal layout" title="Switch between weekly and daily view">
+        <span data-mode="weekly">Weekly</span><span data-mode="daily">Daily</span>
+      </button>
     </div>
     <div class="header-right">
       <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"></button>
@@ -5874,7 +5875,7 @@
   // same elements and data: Daily stores reflection & screenshots on the
   // selected day, Weekly stores the week review on that week's Monday.
   var MODE_KEY = "tapeJournalMode_v1";
-  var journalMode = (function(){ try{ return localStorage.getItem(MODE_KEY) === "daily" ? "daily" : "weekly"; }catch(e){ return "weekly"; } })();
+  var journalMode = "weekly"; // always opens on Weekly
   function applyJournalMode(){
     var weekly = journalMode === "weekly";
     var main = document.getElementById("colMain");
@@ -5909,24 +5910,21 @@
       ? "What went well this week? What would you do differently next week? Any rules broken?"
       : "What went well today? What would you do differently? Any rules broken?";
     document.getElementById("saveReflection").textContent = weekly ? "Save week review" : "Save reflection";
-    Array.prototype.forEach.call(document.querySelectorAll("#modeTabs .view-tab"), function(b){
-      var on = b.dataset.mode === journalMode;
-      b.classList.toggle("active", on);
-      b.setAttribute("aria-pressed", on ? "true" : "false");
-    });
+    var sw = document.getElementById("modeSwitch");
+    Array.prototype.forEach.call(sw.querySelectorAll("span"), function(sp){ sp.classList.toggle("active", sp.dataset.mode === journalMode); });
+    sw.setAttribute("aria-label", (weekly ? "Weekly" : "Daily") + " view \u2014 click to switch to " + (weekly ? "daily" : "weekly"));
   }
   function setJournalMode(m){
     if(m === journalMode) return;
     journalMode = m;
-    try{ localStorage.setItem(MODE_KEY, m); }catch(e){}
     if(currentView !== "journal") setView("journal", true);
     renderReflection.lastRd = null;
     elReflectionText.dataset.dirty = "";
     applyJournalMode();
     renderAll();
   }
-  Array.prototype.forEach.call(document.querySelectorAll("#modeTabs .view-tab"), function(b){
-    b.addEventListener("click", function(){ setJournalMode(b.dataset.mode); });
+  document.getElementById("modeSwitch").addEventListener("click", function(){
+    setJournalMode(journalMode === "weekly" ? "daily" : "weekly");
   });
 
   function renderAll(){
