@@ -753,6 +753,9 @@
     font-size:12.5px;color:var(--text-muted);background:var(--surface-2);border:1px dashed var(--border);
     border-radius:8px;padding:10px 14px;margin-bottom:16px;
   }
+  .st-sym{display:flex;align-items:center;gap:6px;}
+  .st-sym span{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);}
+  .st-sym select{padding:6px 8px;font-size:12.5px;font-weight:600;min-width:130px;}
   .recap-toggle button{font-size:12px;padding:5px 12px;}
   .recap-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px;}
   @media (max-width:880px){ .recap-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} }
@@ -1288,7 +1291,7 @@
           <button id="cancelEdit" class="btn-ghost" style="display:none;">Cancel edit</button>
         </div>
         <div class="form-section">
-          <div class="eyebrow">1 · Analysis</div>
+          <div class="eyebrow">1 · Trade</div>
           <div class="form-grid">
             <div class="field">
               <label for="f-symbol">Symbol</label>
@@ -1305,7 +1308,7 @@
               <label for="f-account">Account</label>
               <select id="f-account"><!-- filled by JS --></select>
             </div>
-            <div class="field full">
+            <div class="field full" hidden>
               <label>Confluence checklist</label>
               <div class="checklist-box" id="checklistBox">
                 <div class="checklist-model">
@@ -1329,7 +1332,7 @@
                 </details>
               </div>
             </div>
-            <div class="field full">
+            <div class="field full" hidden>
               <label for="f-analysis">Analysis / plan</label>
               <textarea id="f-analysis" class="field-textarea" placeholder="Bias, key levels, confirmation you're waiting for...&#10;1. &#10;2. "></textarea>
             </div>
@@ -1353,7 +1356,7 @@
               <input id="f-fee" type="number" step="any" min="0" placeholder="0.00">
               <span class="hint" style="font-size:10.5px;color:var(--text-muted);display:block;margin-top:4px;">Commission + swap. Deducted from P&amp;L.</span>
             </div>
-            <div class="field full offsession-field">
+            <div class="field full offsession-field" hidden>
               <label class="offsession-check" for="f-offsession">
                 <input type="checkbox" id="f-offsession">
                 <span>Off-session trade — taken outside the London / New York killzones</span>
@@ -1462,8 +1465,6 @@
         <div class="perf-section">
           <div class="perf-title">Discipline</div>
           <div class="kv"><span class="k">Current streak</span><span class="v" id="statStreak">—</span></div>
-          <div class="kv"><span class="k">Rule breaks</span><span class="v" id="statRuleBreaks">0</span></div>
-          <div class="kv"><span class="k">Off-session trades</span><span class="v" id="statOffSession">0</span></div>
           <div class="kv"><span class="k">Open trades</span><span class="v" id="statOpen">0</span></div>
         </div>
       </div>
@@ -1543,12 +1544,11 @@
         <button type="button" class="x-close btn-ghost" id="pbClose" aria-label="Close">✕</button>
       </div>
       <div class="pb-controls">
-        <div class="toggle-group" id="pbModels"></div>
+        <div class="toggle-group" id="pbModels" hidden></div>
         <div class="toggle-group side-toggle" id="pbSide"><button type="button" data-side="long">Long</button><button type="button" data-side="short">Short</button></div>
         <input id="pbSymbol" type="text" maxlength="12" placeholder="Symbol, e.g. XAUUSD" style="text-transform:uppercase;">
       </div>
       <div class="x-steps pb-tabs" id="pbTabs">
-        <button type="button" class="x-step" data-tab="rules">Checklist rules</button>
         <button type="button" class="x-step" data-tab="sessions">Sessions &amp; news</button>
         <button type="button" class="x-step" data-tab="risk">Lot size</button>
       </div>
@@ -2478,6 +2478,7 @@
   // the killzones, unless the trader already decided (or it's a saved trade
   // that already had an entry).
   function maybeFlagOffSession(){
+    return; // killzone auto-tagging is off: trades come from the broker CSV
     if(offSessionTouched || elOffSession.checked) return;
     if(elEntry.value === "" || selectedDate !== todayStr() || inKillzoneNow()) return;
     var prev = editingId ? data.trades.find(function(t){ return t.id === editingId; }) : null;
@@ -2571,7 +2572,7 @@
     // get no snapshot, so their stats stay exactly as they were.
     var prev = editingId ? data.trades.find(function(t){ return t.id === editingId; }) : null;
     var prevHadEntry = !!(prev && prev.entry !== null && prev.entry !== undefined && prev.entry !== "");
-    var takingSnapshot = entryVal !== null && !(prev && prev.checklistAtEntry) && !prevHadEntry;
+    var takingSnapshot = false; // checklist gate removed
     var ruleBreak = prev ? !!prev.ruleBreak : false;
     if(takingSnapshot){
       var gate = checklistTally(checklistCtx());
@@ -2594,8 +2595,6 @@
       side: currentSide,
       accountId: currentFormAccountId,
       analysis: elAnalysis.value.trim(),
-      checklistModel: currentChecklistModel,
-      checklist: checklistForSave(),
       entry: entryVal,
       exit: exitVal,
       size: sizeVal,
@@ -3310,10 +3309,6 @@
       var closed = list.filter(isClosed), pnl = closed.reduce(function(s2,t){ return s2 + t.pnl; }, 0);
       return { text: list.length ? list.length + (closed.length ? " · " + (pnl > 0 ? "+" : "") + money(pnl) : "") : "0", cls: list.length && closed.length ? tone(pnl) : "" };
     }
-    var rb = flagged(allTrades.filter(function(t){ return t.ruleBreak; }));
-    setV("statRuleBreaks", rb.text, rb.cls);
-    var off = flagged(allTrades.filter(function(t){ return t.offSession; }));
-    setV("statOffSession", off.text, off.cls);
     setV("statOpen", String(openCount));
   }
 
@@ -4613,6 +4608,15 @@
   // the week or day picked with the Weekly / Daily switch. For a period the
   // starting balance is the balance just before it, so growth stays correct.
   var statsRange = "all";
+  // Symbol filter for the Statistics tab ("All" or e.g. "XAUUSD").
+  var statsSymbol = (function(){ try{ return localStorage.getItem("tapeJournalStatsSymbol_v1") || "All"; }catch(e){ return "All"; } })();
+  function symKey(t){ return String(t.symbol || "?").trim().toUpperCase(); }
+  function statsSymbolOk(t){ return statsSymbol === "All" || symKey(t) === statsSymbol; }
+  function statsSymbolList(){
+    var seen = {};
+    filteredTrades().forEach(function(t){ seen[symKey(t)] = (seen[symKey(t)] || 0) + 1; });
+    return Object.keys(seen).sort(function(a, b){ return seen[b] - seen[a] || (a < b ? -1 : 1); });
+  }
   function statsPeriod(){
     if(statsRange !== "period") return null;
     var d = journalMode === "weekly" ? weekDates(selectedDate) : [selectedDate];
@@ -4630,7 +4634,10 @@
       before = all.filter(function(t){ return isClosed(t) && t.date < per.from; }).reduce(function(x, t){ return x + t.pnl; }, 0);
       all = all.filter(function(t){ return t.date >= per.from && t.date <= per.to; });
     }
-    var closed = all.filter(isClosed).slice().sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    var byDate = function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); };
+    var acctClosed = all.filter(isClosed).slice().sort(byDate); // every symbol, for the real account balance
+    all = all.filter(statsSymbolOk);
+    var closed = all.filter(isClosed).slice().sort(byDate);
     var start = computeStartingBalance() + before;
     var st = { start: start, closed: closed, n: closed.length, open: all.length - closed.length };
     if(!closed.length) return st;
@@ -4722,8 +4729,8 @@
     st.perWeek = closed.length / weeks;
     st.longs = summarize(longs); st.shorts = summarize(shorts);
     st.months = monthsList;
-    st.recapDaily = periodRecap(closed, start, function(t){ return t.date; });
-    st.recapWeekly = periodRecap(closed, start, function(t){ return weekDates(t.date)[0]; });
+    st.recapDaily = periodRecap(acctClosed, start, function(t){ return t.date; }, statsSymbolOk);
+    st.recapWeekly = periodRecap(acctClosed, start, function(t){ return weekDates(t.date)[0]; }, statsSymbolOk);
     st.avgMonth = monthRets.length ? monthRets.reduce(function(a, b){ return a + b; }, 0) / monthRets.length : null;
     st.symbols = symbols; st.weekdays = weekdays;
     st.models = CHECKLIST_MODEL_ORDER.map(function(id){
@@ -4756,23 +4763,31 @@
   // % P&L on the balance at the start of that period, plus the running total
   // against the starting balance of the range.
   var recapMode = (function(){ try{ return localStorage.getItem("tapeJournalRecapMode_v1") === "weekly" ? "weekly" : "daily"; }catch(e){ return "daily"; } })();
-  function periodRecap(closed, start, keyFn){
-    var groups = [], byKey = {}, eq = start;
+  // closed: every closed trade of the account(s), sorted by date, so the
+  // balance at the start of each period is the real account balance.
+  // include(t) picks the trades whose P&L is counted (the symbol filter).
+  function periodRecap(closed, start, keyFn, include){
+    var groups = [], byKey = {}, periodStart = {}, periodEnd = {}, eq = start;
     closed.forEach(function(t){
-      var k = keyFn(t), g = byKey[k];
-      if(!g){ g = byKey[k] = { key: k, startEq: eq, n: 0, wins: 0, losses: 0, net: 0 }; groups.push(g); }
+      var k = keyFn(t);
+      if(!(k in periodStart)) periodStart[k] = eq;
+      eq += t.pnl;
+      periodEnd[k] = eq;
+      if(include && !include(t)) return;
+      var g = byKey[k];
+      if(!g){ g = byKey[k] = { key: k, n: 0, wins: 0, losses: 0, net: 0 }; groups.push(g); }
       g.n++; g.net += t.pnl;
       if(t.pnl > 0) g.wins++; else if(t.pnl < 0) g.losses++;
-      eq += t.pnl;
     });
     groups.sort(function(a, b){ return a.key < b.key ? -1 : (a.key > b.key ? 1 : 0); });
-    var run = start;
+    var run = 0;
     groups.forEach(function(g, i){
       g.idx = i + 1;
+      g.startEq = periodStart[g.key];
       g.ret = g.startEq > 0 ? g.net / g.startEq * 100 : null;
       run += g.net;
-      g.endEq = run;
-      g.cum = start > 0 ? (run - start) / start * 100 : null;
+      g.endEq = periodEnd[g.key];
+      g.cum = start > 0 ? run / start * 100 : null;
     });
     return groups;
   }
@@ -4788,7 +4803,7 @@
     var unit = mode === "daily" ? "day" : "week";
     var toggle = '<div class="toggle-group recap-toggle"><button type="button" data-recap="daily" class="' + (mode === "daily" ? "active" : "") + '">Daily</button>' +
       '<button type="button" data-recap="weekly" class="' + (mode === "weekly" ? "active" : "") + '">Weekly</button></div>';
-    var head = '<div class="card-head"><h2>' + (mode === "daily" ? "Daily" : "Weekly") + ' recap</h2>' + toggle + '</div>';
+    var head = '<div class="card-head"><h2>' + (mode === "daily" ? "Daily" : "Weekly") + ' recap' + (statsSymbol === "All" ? "" : ' \u00b7 ' + escapeHtml(statsSymbol)) + '</h2>' + toggle + '</div>';
     if(!list.length){
       return '<div class="card st-section">' + head + '<div class="st-curve-empty" style="height:120px;"><span>No closed trades yet</span></div></div>';
     }
@@ -4819,7 +4834,7 @@
 
     var rowsMax = Math.max.apply(null, list.map(function(g){ return Math.abs(g.ret || 0); }).concat([0.01]));
     var table = '<div class="st-scroll recap-scroll"><table class="st-table"><thead><tr><th>' + (mode === "daily" ? "Day" : "Week") + '</th><th class="num">Trades</th><th class="num">W / L</th>' +
-      '<th class="num">Net P&amp;L</th><th class="barcell">% P&amp;L</th><th class="num"></th><th class="num">Cumulative</th><th class="num">Balance</th></tr></thead><tbody>' +
+      '<th class="num">Net P&amp;L</th><th class="barcell">% P&amp;L</th><th class="num"></th><th class="num">Cumulative</th><th class="num">' + (statsSymbol === "All" ? "Balance" : "Account balance") + '</th></tr></thead><tbody>' +
       list.slice().reverse().map(function(g){
         return '<tr><td><b class="recap-n">' + recapName(g, mode) + '</b><span class="recap-d">' + recapLabel(g.key, mode) + '</span></td><td class="num">' + g.n + '</td><td class="num">' + g.wins + " / " + g.losses + '</td>' +
           '<td class="num ' + cls(g.net) + '">' + sMoney(g.net) + '</td><td class="barcell">' + (g.ret === null ? "" : divBar(g.ret, rowsMax)) + '</td>' +
@@ -4828,7 +4843,7 @@
       }).join("") + '</tbody></table></div>';
 
     return '<div class="card st-section">' + head + tiles + bars + table +
-      '<p class="st-note">% P&amp;L is each ' + unit + '’s net profit (after fees) divided by the balance at the start of that ' + unit +
+      '<p class="st-note">' + (statsSymbol === "All" ? "" : "Showing " + escapeHtml(statsSymbol) + " only: % is that symbol\u2019s P&amp;L against the whole account balance, so it shows how much " + escapeHtml(statsSymbol) + " added to or took from the account. ") + '% P&amp;L is each ' + unit + '’s net profit (after fees) divided by the balance at the start of that ' + unit +
       '. Cumulative is the total change against the starting balance' + (statsPeriod() ? " of the selected period" : "") + '. ' + (mode === "daily" ? "Day 1 is your first trading day; only days with closed trades are counted" : "Week 1 is the week of your first trade; only weeks with closed trades are counted") +
       (mode === "weekly" ? "; weeks run Monday to Sunday" : "") + '. Follows the Account filter at the top.</p></div>';
   }
@@ -4885,17 +4900,15 @@
   }
 
   // Six-axis profile like MQL5's hexagon. Each axis is a 0-100% share.
-  var RADAR_LABELS = ["Profit trades", "Loss trades", "Trading activity", "Max drawdown", "Off-session", "Checklist met"];
+  var RADAR_LABELS = ["Profit trades", "Loss trades", "Trading activity", "Max drawdown", "Green days", "Green weeks"];
   function radarChart(st){
     var axes;
     if(!st.n){
       axes = RADAR_LABELS.map(function(l){ return { label: l, v: null }; });
     } else {
-      var met = st.compliance[0].list.length, missing = st.compliance[1].list.length;
-      var offN = st.sessions[0].list.length;
       var activity = st.tradingDays / weekdaysSince(st.first) * 100;
-      var vals = [st.wins / st.n * 100, st.losses / st.n * 100, activity, st.maxDDPct, offN / st.n * 100,
-        (met + missing) ? met / (met + missing) * 100 : null];
+      function greenShare(list){ return list && list.length ? list.filter(function(g){ return g.net > 0; }).length / list.length * 100 : null; }
+      var vals = [st.wins / st.n * 100, st.losses / st.n * 100, activity, st.maxDDPct, greenShare(st.recapDaily), greenShare(st.recapWeekly)];
       axes = RADAR_LABELS.map(function(l, i){ return { label: l, v: vals[i] }; });
     }
     var hasData = axes.some(function(a){ return a.v !== null; });
@@ -5061,7 +5074,7 @@
     var monthly = '<div class="card"><div class="card-head"><h2>Monthly</h2></div>' + emptyTable(["Month", "Trades", "Win", "Net P&amp;L", "Return"], [D]) + '</div>';
     var weekday = '<div class="card"><div class="card-head"><h2>By weekday</h2></div>' + emptyTable(["Day", "Trades", "Win", "Net P&amp;L"], ["Mon", "Tue", "Wed", "Thu", "Fri"]) + '</div>';
     var accounts = (activeFirmFilter === "All" && data.accounts.length > 1) ? accountBreakdown() : "";
-    return notice + hero + visuals + recapCard(st) + accounts + tradeStats + '<div class="st-2col st-section">' + dd + discipline + '</div>' +
+    return notice + hero + visuals + recapCard(st) + accounts + tradeStats + '<div class="st-section">' + dd + '</div>' +
       dist + '<div class="st-2col st-section">' + monthly + weekday + '</div>';
   }
 
@@ -5070,6 +5083,13 @@
     if(!root) return;
     if(!root.dataset.wired){
       root.dataset.wired = "1";
+      root.addEventListener("change", function(e){
+        if(e.target && e.target.id === "stSymbol"){
+          statsSymbol = e.target.value;
+          try{ localStorage.setItem("tapeJournalStatsSymbol_v1", statsSymbol); }catch(e2){}
+          renderStatsView();
+        }
+      });
       root.addEventListener("click", function(e){
         var rc = e.target.closest("[data-recap]");
         if(rc){ recapMode = rc.dataset.recap; try{ localStorage.setItem("tapeJournalRecapMode_v1", recapMode); }catch(e2){} renderStatsView(); return; }
@@ -5090,15 +5110,21 @@
         window.scrollTo(0, 0);
       });
     }
+    var symList = statsSymbolList();
+    if(statsSymbol !== "All" && symList.indexOf(statsSymbol) === -1) statsSymbol = "All"; // not traded on this account
     var st = computeStatistics();
     var accLabel = activeFirmFilter === "All" ? "All accounts" : (accountById(activeFirmFilter) ? accountById(activeFirmFilter).name : "\u2014");
     var per = statsPeriod(), unit = journalMode === "weekly" ? "week" : "day";
-    var range = '<div class="st-range"><div class="toggle-group">' +
+    var symSel = '<label class="st-sym"><span>Symbol</span><select id="stSymbol" aria-label="Filter statistics by symbol">' +
+      '<option value="All">All symbols</option>' + symList.map(function(x){
+        return '<option value="' + escapeHtml(x) + '"' + (x === statsSymbol ? " selected" : "") + ">" + escapeHtml(x) + "</option>";
+      }).join("") + "</select></label>";
+    var range = '<div class="st-range">' + symSel + '<div class="toggle-group">' +
         '<button type="button" data-range="all" class="' + (per ? "" : "active") + '">All time</button>' +
         '<button type="button" data-range="period" class="' + (per ? "active" : "") + '">' + (journalMode === "weekly" ? "This week" : "This day") + "</button></div>" +
         (per ? '<button type="button" class="btn-ghost st-shift" data-shift="-1" aria-label="Previous ' + unit + '">\u2190</button><span class="st-period">' + escapeHtml(periodLabel()) +
           '</span><button type="button" class="btn-ghost st-shift" data-shift="1" aria-label="Next ' + unit + '">\u2192</button>' : "") + "</div>";
-    var head = '<div class="st-head"><div class="st-head-l"><h2>Statistics</h2><span class="eyebrow">' + escapeHtml(accLabel) +
+    var head = '<div class="st-head"><div class="st-head-l"><h2>Statistics</h2><span class="eyebrow">' + escapeHtml(accLabel) + (statsSymbol === "All" ? "" : " \u00b7 " + escapeHtml(statsSymbol)) +
       (st.n ? " \u00b7 " + fmtShortDate(st.first) + " \u2013 " + fmtShortDate(st.last) + " " + st.last.slice(0, 4) : "") + "</span></div>" + range + "</div>";
     if(!st.n){
       root.innerHTML = head + statsSkeleton(st);
@@ -5185,12 +5211,10 @@
     var visuals = '<div class="st-visual">' +
       '<div class="card"><div class="card-head"><h2>Growth</h2><span class="eyebrow">balance after each closed trade</span></div>' + growthCurve(st) + '</div>' +
       '<div class="card"><div class="card-head"><h2>Profile</h2></div>' + radarChart(st) +
-        '<p class="st-note">Off-session counts only trades tagged since the killzone check was added. Checklist met covers trades saved with a checklist.</p></div>' +
+        '<p class="st-note">Green days / weeks: share of traded days and weeks that closed in profit.</p></div>' +
     '</div>';
     var accounts = (activeFirmFilter === "All" && data.accounts.length > 1) ? accountBreakdown() : "";
-    root.innerHTML = head + hero + visuals + recapCard(st) + accounts + tradeStats + '<div class="st-2col st-section">' +
-      '<div class="card" style="margin-bottom:0;">' + dd.replace('<div class="card st-section">', "").replace(/<\/div>$/, "") + "</div>" +
-      discipline.replace('<div class="card st-section">', '<div class="card">') + "</div>" +
+    root.innerHTML = head + hero + visuals + recapCard(st) + accounts + tradeStats + dd +
       dist + '<div class="st-2col st-section">' + monthly + weekday + "</div>";
   }
 
@@ -5913,7 +5937,7 @@
   // ---------- Playbook (read-only reference) ----------
   // Shows the checklist models, killzones and a lot-size calculator. It reads
   // the same models and settings the journal uses and never saves anything.
-  var PB = { model: null, side: "long", symbol: "", tab: "rules", accountId: null, entry: "", sl: "", riskPct: "" };
+  var PB = { model: null, side: "long", symbol: "", tab: "sessions", accountId: null, entry: "", sl: "", riskPct: "" };
   var elPbOverlay = document.getElementById("pbOverlay"), elPbBody = document.getElementById("pbBody");
   function openPlaybook(){
     if(!PB.model || !CHECKLIST_MODELS[PB.model]) PB.model = lastChecklistModel;
@@ -6081,9 +6105,9 @@
   // Uses the same calculations as the Statistics tab, limited to the week
   // (Weekly) or day (Daily) being viewed.
   function periodStats(){
-    var saved = statsRange;
-    statsRange = "period";
-    try{ return computeStatistics(); } finally { statsRange = saved; }
+    var saved = statsRange, savedSym = statsSymbol;
+    statsRange = "period"; statsSymbol = "All";
+    try{ return computeStatistics(); } finally { statsRange = saved; statsSymbol = savedSym; }
   }
   function periodMetricsHtml(){
     var st = periodStats(), D = "—", n = st.n;
@@ -6139,8 +6163,6 @@
     document.getElementById("weekSummary").innerHTML = periodMetricsHtml();
     document.getElementById("weekDiscipline").innerHTML =
       "<span><b>" + traded + "/5</b> days traded</span>" +
-      '<span class="' + (breaks ? "down" : "") + '"><b>' + breaks + "</b> rule break" + (breaks === 1 ? "" : "s") + "</span>" +
-      '<span class="' + (off ? "down" : "") + '"><b>' + off + "</b> off-session</span>" +
       '<span class="' + (reviewed ? "up" : "") + '">' + (reviewed ? "\u2713 Week review written" : "Week review not written yet") + "</span>";
     var maxAbs = Math.max.apply(null, perDay.map(function(x){ return Math.abs(x.net); }).concat([1]));
     document.getElementById("weekBars").innerHTML = perDay.map(function(x, i){
