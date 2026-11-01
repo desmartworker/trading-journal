@@ -753,6 +753,23 @@
     font-size:12.5px;color:var(--text-muted);background:var(--surface-2);border:1px dashed var(--border);
     border-radius:8px;padding:10px 14px;margin-bottom:16px;
   }
+  .recap-toggle button{font-size:12px;padding:5px 12px;}
+  .recap-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px;}
+  @media (max-width:880px){ .recap-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .recap-tiles .stat .value{font-size:17px;}
+  .recap-tiles .stat .sub{font-size:10.5px;color:var(--text-muted);margin-top:2px;}
+  .recap-bars{display:flex;gap:3px;height:120px;align-items:stretch;border-top:1px solid var(--border);border-bottom:1px solid var(--border);position:relative;}
+  .recap-bars::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px dashed var(--text-muted);opacity:.5;}
+  .recap-bars .rb{flex:1 1 0;min-width:2px;display:flex;flex-direction:column;cursor:default;}
+  .recap-bars .rb:hover{background:var(--surface-2);}
+  .recap-bars .rb-up,.recap-bars .rb-down{flex:1;display:flex;justify-content:center;}
+  .recap-bars .rb-up{align-items:flex-end;} .recap-bars .rb-down{align-items:flex-start;}
+  .recap-bars span{display:block;width:70%;max-width:26px;border-radius:2px;}
+  .recap-bars .g{background:var(--gain);} .recap-bars .l{background:var(--loss);}
+  .recap-n{display:block;font-weight:600;}
+  .recap-d{display:block;font-size:11px;color:var(--text-muted);}
+  .recap-scroll{max-height:420px;overflow-y:auto;margin-top:14px;}
+  .recap-scroll thead th{position:sticky;top:0;background:var(--surface);z-index:1;}
   .st-curve-axis{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--text-muted);margin-top:4px;}
   .st-radar{width:100%;max-width:340px;height:auto;display:block;margin:0 auto;}
   .st-radar .ring{fill:none;stroke:var(--border);stroke-width:1;}
@@ -4705,6 +4722,8 @@
     st.perWeek = closed.length / weeks;
     st.longs = summarize(longs); st.shorts = summarize(shorts);
     st.months = monthsList;
+    st.recapDaily = periodRecap(closed, start, function(t){ return t.date; });
+    st.recapWeekly = periodRecap(closed, start, function(t){ return weekDates(t.date)[0]; });
     st.avgMonth = monthRets.length ? monthRets.reduce(function(a, b){ return a + b; }, 0) / monthRets.length : null;
     st.symbols = symbols; st.weekdays = weekdays;
     st.models = CHECKLIST_MODEL_ORDER.map(function(id){
@@ -4730,6 +4749,88 @@
       { label: "Not flagged", list: closed.filter(function(t){ return !t.offSession; }) }
     ];
     return st;
+  }
+
+  // ---------- Daily / weekly recap ----------
+  // Groups closed trades by day or by week (Mon-Sun) and gives each period's
+  // % P&L on the balance at the start of that period, plus the running total
+  // against the starting balance of the range.
+  var recapMode = (function(){ try{ return localStorage.getItem("tapeJournalRecapMode_v1") === "weekly" ? "weekly" : "daily"; }catch(e){ return "daily"; } })();
+  function periodRecap(closed, start, keyFn){
+    var groups = [], byKey = {}, eq = start;
+    closed.forEach(function(t){
+      var k = keyFn(t), g = byKey[k];
+      if(!g){ g = byKey[k] = { key: k, startEq: eq, n: 0, wins: 0, losses: 0, net: 0 }; groups.push(g); }
+      g.n++; g.net += t.pnl;
+      if(t.pnl > 0) g.wins++; else if(t.pnl < 0) g.losses++;
+      eq += t.pnl;
+    });
+    groups.sort(function(a, b){ return a.key < b.key ? -1 : (a.key > b.key ? 1 : 0); });
+    var run = start;
+    groups.forEach(function(g, i){
+      g.idx = i + 1;
+      g.ret = g.startEq > 0 ? g.net / g.startEq * 100 : null;
+      run += g.net;
+      g.endEq = run;
+      g.cum = start > 0 ? (run - start) / start * 100 : null;
+    });
+    return groups;
+  }
+  function recapLabel(key, mode){
+    var d = parseDate(key);
+    if(mode === "daily") return WEEKDAY_SHORT[d.getDay()] + " " + MONTH[d.getMonth()].slice(0, 3) + " " + d.getDate();
+    var e = parseDate(weekDates(key)[6]);
+    return MONTH[d.getMonth()].slice(0, 3) + " " + d.getDate() + " – " + (d.getMonth() === e.getMonth() ? "" : MONTH[e.getMonth()].slice(0, 3) + " ") + e.getDate();
+  }
+  function recapName(g, mode){ return (mode === "daily" ? "Day " : "Week ") + g.idx; }
+  function recapCard(st){
+    var D = "—", mode = recapMode, list = st.n ? (mode === "daily" ? st.recapDaily : st.recapWeekly) : [];
+    var unit = mode === "daily" ? "day" : "week";
+    var toggle = '<div class="toggle-group recap-toggle"><button type="button" data-recap="daily" class="' + (mode === "daily" ? "active" : "") + '">Daily</button>' +
+      '<button type="button" data-recap="weekly" class="' + (mode === "weekly" ? "active" : "") + '">Weekly</button></div>';
+    var head = '<div class="card-head"><h2>' + (mode === "daily" ? "Daily" : "Weekly") + ' recap</h2>' + toggle + '</div>';
+    if(!list.length){
+      return '<div class="card st-section">' + head + '<div class="st-curve-empty" style="height:120px;"><span>No closed trades yet</span></div></div>';
+    }
+    var rets = list.filter(function(g){ return g.ret !== null; });
+    var green = list.filter(function(g){ return g.net > 0; }).length, red = list.filter(function(g){ return g.net < 0; }).length;
+    var avg = rets.length ? rets.reduce(function(a, g){ return a + g.ret; }, 0) / rets.length : null;
+    var best = rets.length ? rets.reduce(function(a, g){ return g.ret > a.ret ? g : a; }) : null;
+    var worst = rets.length ? rets.reduce(function(a, g){ return g.ret < a.ret ? g : a; }) : null;
+    var last = list[list.length - 1];
+    function tile(label, value, c, sub){ return '<div class="stat"><div class="label">' + label + '</div><div class="value ' + (c || "") + '">' + value + '</div>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div>'; }
+    var tiles = '<div class="recap-tiles">' +
+      tile("Latest " + unit, last.ret === null ? sMoney(last.net) : fmtPct(last.ret), cls(last.net), recapName(last, mode) + " · " + recapLabel(last.key, mode)) +
+      tile("Average " + unit, avg === null ? D : fmtPct(avg), cls(avg || 0), rets.length + " " + unit + (rets.length === 1 ? "" : "s") + " traded") +
+      tile("Best " + unit, best ? fmtPct(best.ret) : D, best ? cls(best.ret) : "", best ? recapName(best, mode) + " · " + recapLabel(best.key, mode) : "") +
+      tile("Worst " + unit, worst ? fmtPct(worst.ret) : D, worst ? cls(worst.ret) : "", worst ? recapName(worst, mode) + " · " + recapLabel(worst.key, mode) : "") +
+      tile("Green / red", green + " / " + red, green >= red ? "up" : "down", list.length ? (green / list.length * 100).toFixed(0) + "% green " + unit + "s" : "") +
+    '</div>';
+
+    // % bars, oldest left to newest right (most recent 40 periods)
+    var shown = list.slice(-40), maxAbs = Math.max.apply(null, shown.map(function(g){ return Math.abs(g.ret || 0); }).concat([0.01]));
+    var bars = '<div class="recap-bars" role="img" aria-label="% P&L per ' + unit + '">' + shown.map(function(g){
+      var h = g.ret === null ? 0 : Math.max(2, Math.abs(g.ret) / maxAbs * 100);
+      var tip = recapName(g, mode) + " (" + recapLabel(g.key, mode) + "): " + (g.ret === null ? "" : fmtPct(g.ret) + " · ") + sMoney(g.net) + " · " + g.n + " trade" + (g.n === 1 ? "" : "s");
+      return '<div class="rb" title="' + escapeHtml(tip) + '"><div class="rb-up">' + (g.net > 0 ? '<span class="g" style="height:' + h + '%"></span>' : '') +
+        '</div><div class="rb-down">' + (g.net < 0 ? '<span class="l" style="height:' + h + '%"></span>' : '') + '</div></div>';
+    }).join("") + '</div>' +
+      '<div class="st-curve-axis"><span>' + recapName(shown[0], mode) + '</span><span>' + (list.length > 40 ? "last 40 " + unit + "s" : list.length + " " + unit + (list.length === 1 ? "" : "s")) + '</span><span>' + recapName(last, mode) + '</span></div>';
+
+    var rowsMax = Math.max.apply(null, list.map(function(g){ return Math.abs(g.ret || 0); }).concat([0.01]));
+    var table = '<div class="st-scroll recap-scroll"><table class="st-table"><thead><tr><th>' + (mode === "daily" ? "Day" : "Week") + '</th><th class="num">Trades</th><th class="num">W / L</th>' +
+      '<th class="num">Net P&amp;L</th><th class="barcell">% P&amp;L</th><th class="num"></th><th class="num">Cumulative</th><th class="num">Balance</th></tr></thead><tbody>' +
+      list.slice().reverse().map(function(g){
+        return '<tr><td><b class="recap-n">' + recapName(g, mode) + '</b><span class="recap-d">' + recapLabel(g.key, mode) + '</span></td><td class="num">' + g.n + '</td><td class="num">' + g.wins + " / " + g.losses + '</td>' +
+          '<td class="num ' + cls(g.net) + '">' + sMoney(g.net) + '</td><td class="barcell">' + (g.ret === null ? "" : divBar(g.ret, rowsMax)) + '</td>' +
+          '<td class="num ' + cls(g.ret || 0) + '"><b>' + (g.ret === null ? D : fmtPct(g.ret)) + '</b></td>' +
+          '<td class="num ' + cls(g.cum || 0) + '">' + (g.cum === null ? D : fmtPct(g.cum)) + '</td><td class="num">' + money(g.endEq) + '</td></tr>';
+      }).join("") + '</tbody></table></div>';
+
+    return '<div class="card st-section">' + head + tiles + bars + table +
+      '<p class="st-note">% P&amp;L is each ' + unit + '’s net profit (after fees) divided by the balance at the start of that ' + unit +
+      '. Cumulative is the total change against the starting balance' + (statsPeriod() ? " of the selected period" : "") + '. ' + (mode === "daily" ? "Day 1 is your first trading day; only days with closed trades are counted" : "Week 1 is the week of your first trade; only weeks with closed trades are counted") +
+      (mode === "weekly" ? "; weeks run Monday to Sunday" : "") + '. Follows the Account filter at the top.</p></div>';
   }
 
   function kv(k, v, c){ return '<div class="kv"><span class="k">' + k + '</span><span class="v ' + (c || "") + '">' + v + "</span></div>"; }
@@ -4960,7 +5061,7 @@
     var monthly = '<div class="card"><div class="card-head"><h2>Monthly</h2></div>' + emptyTable(["Month", "Trades", "Win", "Net P&amp;L", "Return"], [D]) + '</div>';
     var weekday = '<div class="card"><div class="card-head"><h2>By weekday</h2></div>' + emptyTable(["Day", "Trades", "Win", "Net P&amp;L"], ["Mon", "Tue", "Wed", "Thu", "Fri"]) + '</div>';
     var accounts = (activeFirmFilter === "All" && data.accounts.length > 1) ? accountBreakdown() : "";
-    return notice + hero + visuals + accounts + tradeStats + '<div class="st-2col st-section">' + dd + discipline + '</div>' +
+    return notice + hero + visuals + recapCard(st) + accounts + tradeStats + '<div class="st-2col st-section">' + dd + discipline + '</div>' +
       dist + '<div class="st-2col st-section">' + monthly + weekday + '</div>';
   }
 
@@ -4970,6 +5071,8 @@
     if(!root.dataset.wired){
       root.dataset.wired = "1";
       root.addEventListener("click", function(e){
+        var rc = e.target.closest("[data-recap]");
+        if(rc){ recapMode = rc.dataset.recap; try{ localStorage.setItem("tapeJournalRecapMode_v1", recapMode); }catch(e2){} renderStatsView(); return; }
         var rb = e.target.closest("[data-range]");
         if(rb){ statsRange = rb.dataset.range; renderStatsView(); return; }
         var sh = e.target.closest("[data-shift]");
@@ -5085,7 +5188,7 @@
         '<p class="st-note">Off-session counts only trades tagged since the killzone check was added. Checklist met covers trades saved with a checklist.</p></div>' +
     '</div>';
     var accounts = (activeFirmFilter === "All" && data.accounts.length > 1) ? accountBreakdown() : "";
-    root.innerHTML = head + hero + visuals + accounts + tradeStats + '<div class="st-2col st-section">' +
+    root.innerHTML = head + hero + visuals + recapCard(st) + accounts + tradeStats + '<div class="st-2col st-section">' +
       '<div class="card" style="margin-bottom:0;">' + dd.replace('<div class="card st-section">', "").replace(/<\/div>$/, "") + "</div>" +
       discipline.replace('<div class="card st-section">', '<div class="card">') + "</div>" +
       dist + '<div class="st-2col st-section">' + monthly + weekday + "</div>";
