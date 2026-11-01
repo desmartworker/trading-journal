@@ -772,6 +772,27 @@
   .recap-n{display:block;font-weight:600;}
   .recap-d{display:block;font-size:11px;color:var(--text-muted);}
   .recap-scroll{max-height:420px;overflow-y:auto;margin-top:14px;}
+  .recap-card.expanded .recap-scroll{max-height:none;overflow:visible;}
+  .recap-expand{display:block;width:100%;margin-top:10px;font-size:12px;padding:7px 10px;}
+  .print-only{display:none;}
+  @media print{
+    @page{margin:12mm;}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    body{background:#fff;}
+    .tape-header{position:static;}
+    .tape-wrap, .firm-tabs, .view-tabs, .mode-switch, .pb-header-btn, .theme-toggle, .kz-header, .ny-clock,
+    .st-range, .recap-toggle, .recap-expand, footer, .journal-toast{display:none !important;}
+    main{padding:0;max-width:none;}
+    .print-only{display:block;}
+    .recap-scroll, .st-scroll{max-height:none !important;overflow:visible !important;}
+    .recap-scroll thead th{position:static;}
+    .recap-card{break-before:page;}
+    .recap-card .card-head, .recap-tiles, .recap-bars{break-inside:avoid;}
+    .st-table tr{break-inside:avoid;}
+    .st-table thead{display:table-header-group;}
+    .card{box-shadow:none;}
+    .st-visual > .card, .st-hero, .acct-card, .st-2col > .card, .kv-group{break-inside:avoid;}
+  }
   .recap-scroll thead th{position:sticky;top:0;background:var(--surface);z-index:1;}
   .st-curve-axis{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--text-muted);margin-top:4px;}
   .st-radar{width:100%;max-width:340px;height:auto;display:block;margin:0 auto;}
@@ -4798,14 +4819,16 @@
     return MONTH[d.getMonth()].slice(0, 3) + " " + d.getDate() + " – " + (d.getMonth() === e.getMonth() ? "" : MONTH[e.getMonth()].slice(0, 3) + " ") + e.getDate();
   }
   function recapName(g, mode){ return (mode === "daily" ? "Day " : "Week ") + g.idx; }
-  function recapCard(st){
-    var D = "—", mode = recapMode, list = st.n ? (mode === "daily" ? st.recapDaily : st.recapWeekly) : [];
+  var recapExpanded = (function(){ try{ return localStorage.getItem("tapeJournalRecapAll_v1") === "1"; }catch(e){ return false; } })();
+  // mode defaults to the Daily/Weekly toggle; extra = "print" for the copy shown only when printing.
+  function recapCard(st, modeArg, extra){
+    var D = "—", mode = modeArg || recapMode, list = st.n ? (mode === "daily" ? st.recapDaily : st.recapWeekly) : [];
     var unit = mode === "daily" ? "day" : "week";
     var toggle = '<div class="toggle-group recap-toggle"><button type="button" data-recap="daily" class="' + (mode === "daily" ? "active" : "") + '">Daily</button>' +
       '<button type="button" data-recap="weekly" class="' + (mode === "weekly" ? "active" : "") + '">Weekly</button></div>';
     var head = '<div class="card-head"><h2>' + (mode === "daily" ? "Daily" : "Weekly") + ' recap' + (statsSymbol === "All" ? "" : ' \u00b7 ' + escapeHtml(statsSymbol)) + '</h2>' + toggle + '</div>';
     if(!list.length){
-      return '<div class="card st-section">' + head + '<div class="st-curve-empty" style="height:120px;"><span>No closed trades yet</span></div></div>';
+      return '<div class="card st-section recap-card' + (extra === "print" ? " print-only" : "") + '">' + head + '<div class="st-curve-empty" style="height:120px;"><span>No closed trades yet</span></div></div>';
     }
     var rets = list.filter(function(g){ return g.ret !== null; });
     var green = list.filter(function(g){ return g.net > 0; }).length, red = list.filter(function(g){ return g.net < 0; }).length;
@@ -4842,7 +4865,9 @@
           '<td class="num ' + cls(g.cum || 0) + '">' + (g.cum === null ? D : fmtPct(g.cum)) + '</td><td class="num">' + money(g.endEq) + '</td></tr>';
       }).join("") + '</tbody></table></div>';
 
-    return '<div class="card st-section">' + head + tiles + bars + table +
+    var expand = list.length > 8 ? '<button type="button" class="btn-ghost recap-expand" data-recap-all="1">' +
+      (recapExpanded ? "Collapse list" : "Show all " + list.length + " " + unit + "s") + '</button>' : "";
+    return '<div class="card st-section recap-card' + (recapExpanded ? " expanded" : "") + (extra === "print" ? " print-only" : "") + '">' + head + tiles + bars + table + expand +
       '<p class="st-note">' + (statsSymbol === "All" ? "" : "Showing " + escapeHtml(statsSymbol) + " only: % is that symbol\u2019s P&amp;L against the whole account balance, so it shows how much " + escapeHtml(statsSymbol) + " added to or took from the account. ") + '% P&amp;L is each ' + unit + '’s net profit (after fees) divided by the balance at the start of that ' + unit +
       '. Cumulative is the total change against the starting balance' + (statsPeriod() ? " of the selected period" : "") + '. ' + (mode === "daily" ? "Day 1 is your first trading day; only days with closed trades are counted" : "Week 1 is the week of your first trade; only weeks with closed trades are counted") +
       (mode === "weekly" ? "; weeks run Monday to Sunday" : "") + '. Follows the Account filter at the top.</p></div>';
@@ -5074,7 +5099,7 @@
     var monthly = '<div class="card"><div class="card-head"><h2>Monthly</h2></div>' + emptyTable(["Month", "Trades", "Win", "Net P&amp;L", "Return"], [D]) + '</div>';
     var weekday = '<div class="card"><div class="card-head"><h2>By weekday</h2></div>' + emptyTable(["Day", "Trades", "Win", "Net P&amp;L"], ["Mon", "Tue", "Wed", "Thu", "Fri"]) + '</div>';
     var accounts = (activeFirmFilter === "All" && data.accounts.length > 1) ? accountBreakdown() : "";
-    return notice + hero + visuals + recapCard(st) + accounts + tradeStats + '<div class="st-section">' + dd + '</div>' +
+    return notice + hero + visuals + recapCard(st) + recapCard(st, recapMode === "daily" ? "weekly" : "daily", "print") + accounts + tradeStats + '<div class="st-section">' + dd + '</div>' +
       dist + '<div class="st-2col st-section">' + monthly + weekday + '</div>';
   }
 
@@ -5091,6 +5116,8 @@
         }
       });
       root.addEventListener("click", function(e){
+        var ra = e.target.closest("[data-recap-all]");
+        if(ra){ recapExpanded = !recapExpanded; try{ localStorage.setItem("tapeJournalRecapAll_v1", recapExpanded ? "1" : "0"); }catch(e2){} renderStatsView(); return; }
         var rc = e.target.closest("[data-recap]");
         if(rc){ recapMode = rc.dataset.recap; try{ localStorage.setItem("tapeJournalRecapMode_v1", recapMode); }catch(e2){} renderStatsView(); return; }
         var rb = e.target.closest("[data-range]");
@@ -5214,7 +5241,7 @@
         '<p class="st-note">Green days / weeks: share of traded days and weeks that closed in profit.</p></div>' +
     '</div>';
     var accounts = (activeFirmFilter === "All" && data.accounts.length > 1) ? accountBreakdown() : "";
-    root.innerHTML = head + hero + visuals + recapCard(st) + accounts + tradeStats + dd +
+    root.innerHTML = head + hero + visuals + recapCard(st) + recapCard(st, recapMode === "daily" ? "weekly" : "daily", "print") + accounts + tradeStats + dd +
       dist + '<div class="st-2col st-section">' + monthly + weekday + "</div>";
   }
 
